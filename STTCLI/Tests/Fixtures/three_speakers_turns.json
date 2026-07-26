@@ -1,0 +1,362 @@
+[
+  {
+    "index": 1,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "Good morning team. This is the regression call for the desktop recorder, and we will cover recording, calendar data, summaries, and release checks."
+  },
+  {
+    "index": 2,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "I have the latest build running. The app starts cleanly, the menu item appears in the system bar, and the dashboard opens without a delay."
+  },
+  {
+    "index": 3,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "I will track quality notes. Please mention exact feature names because the reference transcript should help us find recognition mistakes later."
+  },
+  {
+    "index": 4,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "First topic is manual recording. When the user presses start, the status panel should switch to recording and the stop button should become active."
+  },
+  {
+    "index": 5,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "The system audio stream starts first. The microphone stream joins after that, and both channels write separate wave files before post processing."
+  },
+  {
+    "index": 6,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "I checked the silent microphone option. If silence mode is enabled, the microphone meter must stay hidden and the output should contain generated silence."
+  },
+  {
+    "index": 7,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "That behavior matters for privacy. A user may want system sound from the meeting, but they may not want their own room audio captured."
+  },
+  {
+    "index": 8,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "The status card now shows the active job, current stage, started time, and duration. It also shows compact meters for system sound and microphone."
+  },
+  {
+    "index": 9,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "The meters are useful, but the test phrase should include both channel names. System sound has signal. Microphone has signal. Silence should be explicit."
+  },
+  {
+    "index": 10,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "Second topic is calendar autopilot. The app reads CalDAV events, finds meetings with links, and starts recording before the scheduled start time."
+  },
+  {
+    "index": 11,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "For each event, we keep the title, start date, end date, meeting URL, organizer, attendee list, and participant count when it is available."
+  },
+  {
+    "index": 12,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "The participant count is important for recognition. If the setting says from calendar, the recognizer should receive the calendar count instead of auto detect."
+  },
+  {
+    "index": 13,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "The calendar page should show today's schedule in a simple list. Past meetings should look muted, current meetings should stand out, and future meetings should stay readable."
+  },
+  {
+    "index": 14,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "We removed the stretched calendar blocks because they made short events look too large. Each event row now uses content height instead of duration height."
+  },
+  {
+    "index": 15,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "Please include edge cases in this fixture. One meeting has one participant, another has seven participants, and another has thirteen participants."
+  },
+  {
+    "index": 16,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "Third topic is summary generation. After recording stops, the pipeline converts audio, transcribes speech, writes front matter, and creates a markdown summary."
+  },
+  {
+    "index": 17,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "Front matter should include all useful calendar metadata. That means event identifier, title, times, URL, organizer, attendees, and participant count."
+  },
+  {
+    "index": 18,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "If a calendar field is missing, the summary should still be valid markdown. Empty fields should not break parsing or hide the transcript."
+  },
+  {
+    "index": 19,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "The recent meetings table should be compact. The summary action comes first, then the folder icon, then the delete icon."
+  },
+  {
+    "index": 20,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "Meeting names can be edited inline. Pressing enter commits the rename, and completed meetings should rename the folder when the new title is saved."
+  },
+  {
+    "index": 21,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "Delete must remove the whole meeting recording folder, but it should ask for confirmation first so a user does not lose data by mistake."
+  },
+  {
+    "index": 22,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "Fourth topic is localization. The application should not mix Russian and English labels in one screen unless the text is a technical field name."
+  },
+  {
+    "index": 23,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "The sidebar uses Russian section names. Status, meetings, autopilot, settings, logs, and permissions should all have consistent typography and spacing."
+  },
+  {
+    "index": 24,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "Buttons need short labels. Long labels should either wrap cleanly or become icons with tooltips, but they must not clip inside the button."
+  },
+  {
+    "index": 25,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "Fifth topic is permissions. Microphone, screen recording, and notifications should show granted or missing states with clear system settings buttons."
+  },
+  {
+    "index": 26,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "The permissions screen should not scroll at the default window size. It should fit the card, the permission rows, and the privacy note."
+  },
+  {
+    "index": 27,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "Notifications should use the app icon. If the icon is missing in a system notification, the bundle resources need another look."
+  },
+  {
+    "index": 28,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "Sixth topic is logs. The log screen should auto scroll to the newest message unless the user disables auto scroll with a checkbox."
+  },
+  {
+    "index": 29,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "Log rows should use a small readable monospaced font. Activity logs and errors should have separate framed areas with enough padding."
+  },
+  {
+    "index": 30,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "A clear logs button is fine, but it should not sit too close to the checkbox. The click target needs to include the whole button shape."
+  },
+  {
+    "index": 31,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "Seventh topic is packaging. The disk image should contain the current app, the version string should be simple, and the landing page should link to the download."
+  },
+  {
+    "index": 32,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "The GitHub action builds the disk image. It checks out the repository, prepares private command line dependencies, runs make dmg, and uploads the artifact."
+  },
+  {
+    "index": 33,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "If a private dependency token is missing, the action should fail with a helpful message. The message should name the exact secret that is required."
+  },
+  {
+    "index": 34,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "Eighth topic is distribution. Unsigned builds can be shared for testing, but Developer ID signing and notarization are needed for a smoother install experience."
+  },
+  {
+    "index": 35,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "A teammate with an Apple Developer account can export a Developer ID certificate and provide credentials through repository secrets for the release workflow."
+  },
+  {
+    "index": 36,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "We should document that process carefully. Testers need to know which builds are local, which builds are signed, and which builds are notarized."
+  },
+  {
+    "index": 37,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "Ninth topic is speech recognition quality. This file should be long enough to test transcription stability, punctuation tolerance, and diarization behavior."
+  },
+  {
+    "index": 38,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "Unlike the first fixture, this scenario should not repeat the same block. Repetition makes word error rate misleading when the alignment shifts."
+  },
+  {
+    "index": 39,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "Each turn should have a stable speaker identifier, voice name, and source text. A separate turns file makes debugging easier than one huge paragraph."
+  },
+  {
+    "index": 40,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "The reference text still stays useful for word error rate and character error rate. It should be normalized before comparing with the hypothesis."
+  },
+  {
+    "index": 41,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "The turn file is useful for future checks. Later we can compare expected speaker order with detected diarization segments and find speaker swaps."
+  },
+  {
+    "index": 42,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "For now, we should at least verify that the recognizer finds three speakers and that the text error rate stays within an expected range."
+  },
+  {
+    "index": 43,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "Tenth topic is audio format. The fixture should be mono wave audio at sixteen kilohertz with signed sixteen bit samples."
+  },
+  {
+    "index": 44,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "That format is small enough for the repository and simple enough for command line tools to inspect with ffprobe or similar utilities."
+  },
+  {
+    "index": 45,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "Short pauses are intentional. They make turns easier to separate while still sounding like a realistic structured team call."
+  },
+  {
+    "index": 46,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "Eleventh topic is error handling. If transcription fails, the command should return a useful error instead of crashing or printing an empty output."
+  },
+  {
+    "index": 47,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "If diarization returns more labels than expected, the labels should continue past speaker Z without breaking or losing segments."
+  },
+  {
+    "index": 48,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "If word allocation fails near a segment boundary, the transcript should keep the words in order and avoid assigning everything to one speaker."
+  },
+  {
+    "index": 49,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "Twelfth topic is app performance. Starting a recording should not block the user interface or make system audio lag for several seconds."
+  },
+  {
+    "index": 50,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "Audio startup work should stay off the main thread where possible. The dashboard can update state after the recorder confirms the session has started."
+  },
+  {
+    "index": 51,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "If the computer goes to sleep during recording, the app should stop gracefully and still process valid microphone and system files."
+  },
+  {
+    "index": 52,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "Thirteenth topic is file naming. In progress folders can keep a technical suffix, but completed folders should use the saved meeting name when possible."
+  },
+  {
+    "index": 53,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "If the user renames a completed meeting after summary generation, the folder rename should happen at the same time as the metadata update."
+  },
+  {
+    "index": 54,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "Names must be sanitized for the file system. Slashes, colons, and very long titles should not create invalid paths."
+  },
+  {
+    "index": 55,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "Fourteenth topic is agent access. The integrations settings tab exposes a local base URL and API key for automation tools."
+  },
+  {
+    "index": 56,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "The key can be regenerated with one button. Copy should copy the current connection details without showing duplicate fields."
+  },
+  {
+    "index": 57,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "The integrations tab belongs after application settings, because most users will adjust summaries, recognition, and calendar before external automation."
+  },
+  {
+    "index": 58,
+    "speakerId": "speaker_1",
+    "voice": "Samantha",
+    "text": "Fifteenth topic is the landing page. It should describe autopilot, local recording, calendar metadata, summaries, and compact meeting management."
+  },
+  {
+    "index": 59,
+    "speakerId": "speaker_2",
+    "voice": "Daniel",
+    "text": "Competitor features are useful for positioning, but the page should avoid fake customer names and avoid mentioning real private company examples."
+  },
+  {
+    "index": 60,
+    "speakerId": "speaker_3",
+    "voice": "Karen",
+    "text": "The download link should point to the latest disk image on the server, and the readme should explain how the image is produced."
+  }
+]

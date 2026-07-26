@@ -1,0 +1,12 @@
+bin/
+.cli/
+build/
+releases/
+default.profraw
+*.xcuserstate
+xcuserdata/
+DerivedData/
+STTCLI/.build/
+WhisperSTTCLI/.build/
+!scripts/
+!scripts/test_ffmpeg_mp3_decode.sh

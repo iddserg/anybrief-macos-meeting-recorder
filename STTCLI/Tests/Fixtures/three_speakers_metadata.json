@@ -1,0 +1,31 @@
+{
+  "audio": "three_speakers.wav",
+  "reference": "three_speakers_reference.txt",
+  "turns": "three_speakers_turns.json",
+  "sampleRateHz": 16000,
+  "channels": 1,
+  "format": "pcm_s16le wav",
+  "speechRateWordsPerMinute": 125,
+  "silenceBetweenTurnsSeconds": 0.85,
+  "targetDurationSeconds": 600,
+  "actualDurationSeconds": 602.826125,
+  "turnCount": 60,
+  "recommendedCommand": "swift run stt Tests/Fixtures/three_speakers.wav --output .build/three-speaker-fixture --speakers 3 --threshold 0.5",
+  "speakers": [
+    {
+      "id": "speaker_1",
+      "voice": "Samantha",
+      "role": "product lead"
+    },
+    {
+      "id": "speaker_2",
+      "voice": "Daniel",
+      "role": "engineer"
+    },
+    {
+      "id": "speaker_3",
+      "voice": "Karen",
+      "role": "qa"
+    }
+  ]
+}
