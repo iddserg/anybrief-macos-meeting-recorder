@@ -6,6 +6,14 @@ import Foundation
 import ScreenCaptureKit
 
 final class EmbeddedAudioRecorder: AudioRecording {
+    // A non-nil tap format attempts to reconfigure the input node. During an
+    // audio-device transition outputFormat(forBus:) can briefly describe the
+    // device that just disappeared, and AVFAudio terminates the process with an
+    // Objective-C exception when that format no longer matches the hardware.
+    // Let AVAudioEngine negotiate the live input format instead; enqueueWrite
+    // already converts each captured buffer to the recording file's format.
+    static var hardwareNegotiatedMicrophoneTapFormat: AVAudioFormat? { nil }
+
     private let microphoneRecorder: EmbeddedMicrophoneRecorder
     private let systemRecorder: EmbeddedSystemAudioRecorder
 
@@ -432,8 +440,11 @@ private final class EmbeddedMicrophoneRecorder {
         let inputNode = engine.inputNode
         setEchoCancellationStatus(Self.configureVoiceProcessing(on: inputNode, enabled: voiceProcessingEnabled))
         try applyPreferredDevice(to: inputNode)
-        let tapFormat = inputNode.outputFormat(forBus: 0)
-        inputNode.installTap(onBus: 0, bufferSize: 4096, format: tapFormat) { [weak self] buffer, _ in
+        inputNode.installTap(
+            onBus: 0,
+            bufferSize: 4096,
+            format: EmbeddedAudioRecorder.hardwareNegotiatedMicrophoneTapFormat
+        ) { [weak self] buffer, _ in
             self?.enqueueWrite(buffer)
         }
 

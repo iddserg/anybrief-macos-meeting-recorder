@@ -905,7 +905,7 @@ final class SummarizationServiceTests: XCTestCase {
                 timeoutSec: 120,
                 retryCount: nil,
                 commandPreset: "claude",
-                commandLine: #"/usr/local/bin/claude -p --output-format text"#,
+                commandLine: #"/Users/nserg/.local/bin/claude -p --output-format text"#,
                 ollamaContextLength: nil,
                 ollamaChunkThreshold: nil,
                 ollamaChunkSize: nil

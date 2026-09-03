@@ -10,9 +10,19 @@ DMG_PATH       = $(RELEASE_DIR)/$(DMG_NAME)
 SIGNED_DMG_NAME = AnyBrief-signed.dmg
 SIGNED_DMG_PATH = $(SIGNED_DIR)/$(SIGNED_DMG_NAME)
 DMG_STAGING_DIR = $(BUILD_ROOT)/dmg
+RELEASE_ARCHIVE_DIR ?= releases
+RELEASE_ID ?= $(shell date +%Y-%m-%d_%H-%M-%S)
+RELEASE_ARCHIVE_PATH = $(RELEASE_ARCHIVE_DIR)/$(RELEASE_ID)
+DEPLOY_ENV     ?= deploy.env
+LANDING_DIR    = landing
+LANDING_EN_DIR = landing-en
+LANDING_DMG    = $(LANDING_DIR)/$(DMG_NAME)
+LANDING_EN_DMG = $(LANDING_EN_DIR)/$(DMG_NAME)
+LANDING_VERSION_MANIFEST = $(LANDING_DIR)/version.json
+LANDING_EN_VERSION_MANIFEST = $(LANDING_EN_DIR)/version.json
+APP_VERSION ?= $(shell /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" AnyBrief/Resources/Info.plist 2>/dev/null || echo 0.0.0)
 CLI_DIR        = $(PWD)/bin
 CLI_SRC        = .cli
-STT_PACKAGE    = STTCLI
 CODE_SIGN_IDENTITY ?= -
 CODE_SIGN_STYLE ?= Automatic
 DEVELOPMENT_TEAM ?=
@@ -28,11 +38,12 @@ FFMPEG_BUILD_DIR = $(CLI_SRC)/ffmpeg-build
 FFMPEG_TARBALL = $(FFMPEG_BUILD_DIR)/ffmpeg-$(FFMPEG_VERSION).tar.xz
 LAME_TARBALL = $(FFMPEG_BUILD_DIR)/lame-$(LAME_VERSION).tar.gz
 
-.PHONY: run dev build test release-build embed-cli sign-release-app dmg signed-dmg notarize-dmg notarized-dmg clean-dmg \
-	kill cli cli-stt cli-whisper cli-ffmpeg test-ffmpeg-mp3 verify-universal
+.PHONY: run dev build release-build embed-cli sign-release-app dmg signed-dmg notarize-dmg notarized-dmg clean-dmg archive-existing-signed-dmg \
+	archive-signed-dmg site-version-manifests prepare-site-dmgs archive-published-dmgs deploy-site \
+	kill pull cli cli-recorder cli-stt cli-whisper cli-ffmpeg test-ffmpeg-mp3 verify-universal test-deploy-env
 
-# Build the bundled CLIs, build the app, and launch it.
-run: cli dev
+# Полный цикл: стянуть код + собрать CLIs + собрать app + запустить
+run: pull cli dev
 
 # Быстрый перезапуск: только пересобрать app (CLIs уже готовы)
 # stt/ffmpeg live inside the app bundle for a self-contained package.
@@ -73,15 +84,6 @@ build:
 		-configuration Debug \
 		CONFIGURATION_BUILD_DIR=$(PWD)/$(DEBUG_DIR) \
 		build
-
-test:
-	xcodebuild test \
-		-scheme AnyBrief \
-		-project AnyBrief.xcodeproj \
-		-destination platform=macOS \
-		-derivedDataPath /private/tmp/anybrief-derived
-	swift test --package-path $(STT_PACKAGE)
-	swift test --package-path WhisperSTTCLI
 
 release-build:
 	@mkdir -p $(RELEASE_DIR)
@@ -154,6 +156,22 @@ verify-universal:
 clean-dmg:
 	rm -rf $(DMG_STAGING_DIR) $(DMG_PATH)
 
+archive-existing-signed-dmg:
+	@if [ -f "$(SIGNED_DMG_PATH)" ]; then \
+		archive_dir="$(RELEASE_ARCHIVE_DIR)/prebuild-$$(date +%Y-%m-%d_%H-%M-%S)"; \
+		mkdir -p "$$archive_dir"; \
+		cp "$(SIGNED_DMG_PATH)" "$$archive_dir/$(SIGNED_DMG_NAME)"; \
+		shasum -a 256 "$$archive_dir/$(SIGNED_DMG_NAME)" > "$$archive_dir/$(SIGNED_DMG_NAME).sha256"; \
+		echo "Archived existing signed DMG: $$archive_dir/$(SIGNED_DMG_NAME)"; \
+	fi
+
+archive-signed-dmg:
+	@test -f "$(SIGNED_DMG_PATH)" || (echo "Missing $(SIGNED_DMG_PATH). Build, sign, notarize, and staple it first." && exit 1)
+	@mkdir -p "$(RELEASE_ARCHIVE_PATH)"
+	cp "$(SIGNED_DMG_PATH)" "$(RELEASE_ARCHIVE_PATH)/$(SIGNED_DMG_NAME)"
+	shasum -a 256 "$(RELEASE_ARCHIVE_PATH)/$(SIGNED_DMG_NAME)" > "$(RELEASE_ARCHIVE_PATH)/$(SIGNED_DMG_NAME).sha256"
+	@echo "Archived signed release: $(RELEASE_ARCHIVE_PATH)/$(SIGNED_DMG_NAME)"
+
 dmg: cli release-build embed-cli sign-release-app verify-universal clean-dmg
 	@mkdir -p $(DMG_STAGING_DIR) $(RELEASE_DIR)
 	cp -R $(RELEASE_APP) $(DMG_STAGING_DIR)/$(APP_NAME)
@@ -166,7 +184,8 @@ dmg: cli release-build embed-cli sign-release-app verify-universal clean-dmg
 	@echo "DMG ready: $(DMG_PATH)"
 
 signed-dmg: DMG_PATH := $(SIGNED_DMG_PATH)
-signed-dmg: clean-dmg cli release-build embed-cli sign-release-app verify-universal
+signed-dmg: archive-existing-signed-dmg clean-dmg
+signed-dmg: cli release-build embed-cli sign-release-app verify-universal
 	@mkdir -p $(DMG_STAGING_DIR) $(SIGNED_DIR)
 	cp -R $(RELEASE_APP) $(DMG_STAGING_DIR)/$(APP_NAME)
 	ln -s /Applications $(DMG_STAGING_DIR)/Applications
@@ -191,17 +210,113 @@ notarize-dmg:
 
 notarized-dmg: signed-dmg notarize-dmg
 
+site-version-manifests:
+	@printf '{\n  "version": "$(APP_VERSION)",\n  "build": "$(APP_VERSION)",\n  "downloadURL": "https://anybrief.ru/$(DMG_NAME)",\n  "releaseNotesURL": "https://anybrief.ru/changelog.html"\n}\n' > "$(LANDING_VERSION_MANIFEST)"
+	@printf '{\n  "version": "$(APP_VERSION)",\n  "build": "$(APP_VERSION)",\n  "downloadURL": "https://anybrief.pro/$(DMG_NAME)",\n  "releaseNotesURL": "https://anybrief.pro/changelog.html"\n}\n' > "$(LANDING_EN_VERSION_MANIFEST)"
+	@echo "Updated site version manifests for $(APP_VERSION)"
+
+prepare-site-dmgs: archive-signed-dmg site-version-manifests
+	cp "$(SIGNED_DMG_PATH)" "$(LANDING_DMG)"
+	cp "$(SIGNED_DMG_PATH)" "$(LANDING_EN_DMG)"
+	@mkdir -p "$(RELEASE_ARCHIVE_PATH)/published/ru" "$(RELEASE_ARCHIVE_PATH)/published/en"
+	cp "$(LANDING_DMG)" "$(RELEASE_ARCHIVE_PATH)/published/ru/$(DMG_NAME)"
+	cp "$(LANDING_EN_DMG)" "$(RELEASE_ARCHIVE_PATH)/published/en/$(DMG_NAME)"
+	cp "$(LANDING_VERSION_MANIFEST)" "$(RELEASE_ARCHIVE_PATH)/published/ru/version.json"
+	cp "$(LANDING_EN_VERSION_MANIFEST)" "$(RELEASE_ARCHIVE_PATH)/published/en/version.json"
+	cp "$(LANDING_DIR)/changelog.html" "$(RELEASE_ARCHIVE_PATH)/published/ru/changelog.html"
+	cp "$(LANDING_EN_DIR)/changelog.html" "$(RELEASE_ARCHIVE_PATH)/published/en/changelog.html"
+	cp "$(LANDING_DIR)/sitemap.xml" "$(RELEASE_ARCHIVE_PATH)/published/ru/sitemap.xml"
+	cp "$(LANDING_EN_DIR)/sitemap.xml" "$(RELEASE_ARCHIVE_PATH)/published/en/sitemap.xml"
+	cp "$(LANDING_DIR)/og.png" "$(RELEASE_ARCHIVE_PATH)/published/ru/og.png"
+	cp "$(LANDING_EN_DIR)/og.png" "$(RELEASE_ARCHIVE_PATH)/published/en/og.png"
+	shasum -a 256 "$(RELEASE_ARCHIVE_PATH)/published/ru/$(DMG_NAME)" > "$(RELEASE_ARCHIVE_PATH)/published/ru/$(DMG_NAME).sha256"
+	shasum -a 256 "$(RELEASE_ARCHIVE_PATH)/published/en/$(DMG_NAME)" > "$(RELEASE_ARCHIVE_PATH)/published/en/$(DMG_NAME).sha256"
+	@echo "Prepared and archived site DMGs under $(RELEASE_ARCHIVE_PATH)/published"
+
+archive-published-dmgs: site-version-manifests
+	@test -f "$(LANDING_DMG)" || (echo "Missing $(LANDING_DMG)" && exit 1)
+	@test -f "$(LANDING_EN_DMG)" || (echo "Missing $(LANDING_EN_DMG)" && exit 1)
+	@mkdir -p "$(RELEASE_ARCHIVE_PATH)/published/ru" "$(RELEASE_ARCHIVE_PATH)/published/en"
+	cp "$(LANDING_DMG)" "$(RELEASE_ARCHIVE_PATH)/published/ru/$(DMG_NAME)"
+	cp "$(LANDING_EN_DMG)" "$(RELEASE_ARCHIVE_PATH)/published/en/$(DMG_NAME)"
+	cp "$(LANDING_VERSION_MANIFEST)" "$(RELEASE_ARCHIVE_PATH)/published/ru/version.json"
+	cp "$(LANDING_EN_VERSION_MANIFEST)" "$(RELEASE_ARCHIVE_PATH)/published/en/version.json"
+	cp "$(LANDING_DIR)/changelog.html" "$(RELEASE_ARCHIVE_PATH)/published/ru/changelog.html"
+	cp "$(LANDING_EN_DIR)/changelog.html" "$(RELEASE_ARCHIVE_PATH)/published/en/changelog.html"
+	cp "$(LANDING_DIR)/sitemap.xml" "$(RELEASE_ARCHIVE_PATH)/published/ru/sitemap.xml"
+	cp "$(LANDING_EN_DIR)/sitemap.xml" "$(RELEASE_ARCHIVE_PATH)/published/en/sitemap.xml"
+	cp "$(LANDING_DIR)/og.png" "$(RELEASE_ARCHIVE_PATH)/published/ru/og.png"
+	cp "$(LANDING_EN_DIR)/og.png" "$(RELEASE_ARCHIVE_PATH)/published/en/og.png"
+	shasum -a 256 "$(RELEASE_ARCHIVE_PATH)/published/ru/$(DMG_NAME)" > "$(RELEASE_ARCHIVE_PATH)/published/ru/$(DMG_NAME).sha256"
+	shasum -a 256 "$(RELEASE_ARCHIVE_PATH)/published/en/$(DMG_NAME)" > "$(RELEASE_ARCHIVE_PATH)/published/en/$(DMG_NAME).sha256"
+	@echo "Archived published DMGs under $(RELEASE_ARCHIVE_PATH)/published"
+
+deploy-site: site-version-manifests
+	@test -f "$(DEPLOY_ENV)" || (echo "Missing $(DEPLOY_ENV). Copy deploy.example.env to $(DEPLOY_ENV) and fill it in." && exit 1)
+	@test -f "$(DMG_PATH)" || (echo "Missing $(DMG_PATH). Run 'make dmg' first." && exit 1)
+	python3 scripts/deploy_site.py deploy \
+		--env-file "$(DEPLOY_ENV)" \
+		--dmg-path "$(DMG_PATH)" \
+		--landing-dmg "$(LANDING_DMG)" \
+		--landing-index "$(LANDING_DIR)/index.html" \
+		--landing-ai-txt "$(LANDING_DIR)/ai.txt" \
+		--landing-llms-txt "$(LANDING_DIR)/llms.txt" \
+		--landing-screens-dir "$(LANDING_DIR)/screens" \
+		--site-file "$(LANDING_VERSION_MANIFEST)" \
+		--site-file "$(LANDING_DIR)/changelog.html" \
+		--site-file "$(LANDING_DIR)/sitemap.xml" \
+		--site-file "$(LANDING_DIR)/og.png" \
+		--landing-en-index "$(LANDING_EN_DIR)/index.html" \
+		--landing-en-ai-txt "$(LANDING_EN_DIR)/ai.txt" \
+		--landing-en-llms-txt "$(LANDING_EN_DIR)/llms.txt" \
+		--landing-en-screens-dir "$(LANDING_EN_DIR)/screens" \
+		--landing-en-dmg "$(LANDING_EN_DMG)" \
+		--en-site-file "$(LANDING_EN_VERSION_MANIFEST)" \
+		--en-site-file "$(LANDING_EN_DIR)/changelog.html" \
+		--en-site-file "$(LANDING_EN_DIR)/sitemap.xml" \
+		--en-site-file "$(LANDING_EN_DIR)/og.png"
+
+test-deploy-env:
+	python3 -m unittest scripts.test_deploy_site
+
 kill:
 	pkill -x AnyBrief 2>/dev/null || true
 
-# Build the helper binaries bundled into AnyBrief.
+pull:
+	git pull origin main
+
+# Собрать внешние CLI-бинарники в bin/
 cli: cli-stt cli-whisper cli-ffmpeg
 	@echo "CLIs ready in $(CLI_DIR)"
 
+cli-recorder:
+	@mkdir -p $(CLI_DIR) $(CLI_SRC)
+	@if [ -d $(CLI_SRC)/recorder ]; then \
+		echo "Updating recorder..."; \
+		cd $(CLI_SRC)/recorder && git pull; \
+	else \
+		echo "Cloning recorder..."; \
+		git clone https://github.com/iddserg/recorder.git $(CLI_SRC)/recorder; \
+	fi
+	cd $(CLI_SRC)/recorder && swift build -c release $(SWIFT_UNIVERSAL_ARCHS)
+	cp $(CLI_SRC)/recorder/.build/apple/Products/Release/recorder $(CLI_DIR)/recorder
+	chmod +x $(CLI_DIR)/recorder
+	codesign --force --sign - $(CLI_DIR)/recorder
+	codesign --verify --strict $(CLI_DIR)/recorder
+	lipo -info $(CLI_DIR)/recorder
+	@echo "recorder -> $(CLI_DIR)/recorder"
+
 cli-stt:
-	@mkdir -p $(CLI_DIR)
-	swift build --package-path $(STT_PACKAGE) -c release $(SWIFT_UNIVERSAL_ARCHS)
-	cp $(STT_PACKAGE)/.build/apple/Products/Release/stt $(CLI_DIR)/stt
+	@mkdir -p $(CLI_DIR) $(CLI_SRC)
+	@if [ -d $(CLI_SRC)/stt ]; then \
+		echo "Updating stt..."; \
+		cd $(CLI_SRC)/stt && git pull; \
+	else \
+		echo "Cloning stt..."; \
+		git clone https://github.com/iddserg/stt.git $(CLI_SRC)/stt; \
+	fi
+	cd $(CLI_SRC)/stt && swift build -c release $(SWIFT_UNIVERSAL_ARCHS)
+	cp $(CLI_SRC)/stt/.build/apple/Products/Release/stt $(CLI_DIR)/stt
 	chmod +x $(CLI_DIR)/stt
 	codesign --force --sign - $(CLI_DIR)/stt
 	codesign --verify --strict $(CLI_DIR)/stt

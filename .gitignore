@@ -3,10 +3,13 @@ bin/
 build/
 releases/
 default.profraw
+deploy.env
+local-server-access.txt
+landing/AnyBrief.dmg
+landing-en/AnyBrief.dmg
 *.xcuserstate
 xcuserdata/
 DerivedData/
-STTCLI/.build/
-WhisperSTTCLI/.build/
 !scripts/
 !scripts/test_ffmpeg_mp3_decode.sh
+scripts/__pycache__/

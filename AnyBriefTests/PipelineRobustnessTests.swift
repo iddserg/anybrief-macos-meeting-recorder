@@ -4,6 +4,10 @@ import XCTest
 
 /// Tests pipeline fallback and recorder watchdog behavior from the error-handling spec.
 final class PipelineRobustnessTests: XCTestCase {
+    func testEmbeddedRecorderLetsAudioEngineNegotiateMicrophoneTapFormat() {
+        XCTAssertNil(EmbeddedAudioRecorder.hardwareNegotiatedMicrophoneTapFormat)
+    }
+
     func testPipelineCreatesFallbackSummaryAndMarksPartialSuccess() async throws {
         let fileManager = FileManager.default
         let rootURL = try makeTemporaryDirectory()
@@ -117,7 +121,7 @@ final class PipelineRobustnessTests: XCTestCase {
         XCTAssertEqual(lastState, .idle)
         let notification = await notificationRecorder.currentValue()
         XCTAssertEqual(notification?.category, NotificationService.Category.summaryReady.rawValue)
-        XCTAssertEqual(notification?.body, String(localized: "Your brief is ready"))
+        XCTAssertEqual(notification?.body, "Ваш бриф готов")
     }
 
     func testPipelineSkipsSummaryWhenTranscriptHasFewerThanThirtyWords() async throws {
@@ -702,7 +706,7 @@ final class PipelineRobustnessTests: XCTestCase {
 
         let notification = await notificationRecorder.currentValue()
         XCTAssertEqual(notification?.category, NotificationService.Category.summaryReady.rawValue)
-        XCTAssertEqual(notification?.body, String(localized: "Your brief is ready"))
+        XCTAssertEqual(notification?.body, "Ваш бриф готов")
     }
 
     func testRecordingAdapterNotifiesStartAndPreEndForCalendarRecording() async throws {
@@ -777,13 +781,7 @@ final class PipelineRobustnessTests: XCTestCase {
         }
 
         let notifications = await notificationRecorder.values()
-        XCTAssertEqual(
-            notifications.map(\.body),
-            [
-                String(localized: "Recording started"),
-                String(localized: "Recording will stop in 2 minutes")
-            ]
-        )
+        XCTAssertEqual(notifications.map(\.body), ["Запись началась", "Запись остановится через 2 минуты"])
 
         _ = try await adapter.cancel(jobId: "job-calendar")
     }
@@ -853,7 +851,7 @@ final class PipelineRobustnessTests: XCTestCase {
         try await Task.sleep(nanoseconds: 1_500_000_000)
 
         let notifications = await notificationRecorder.values()
-        XCTAssertEqual(notifications.map(\.body), [String(localized: "Recording started")])
+        XCTAssertEqual(notifications.map(\.body), ["Запись началась"])
 
         _ = try await adapter.cancel(jobId: "job-calendar-disable")
     }
