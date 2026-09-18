@@ -8,6 +8,28 @@ final class AppSupportServiceTests: XCTestCase {
         super.tearDown()
     }
 
+    func testLocalListenerRetainsHandlerUntilHTTPResponseIsSent() async throws {
+        let factory = EphemeralLocalAPIListenerFactory()
+        let listener = LocalAPIListener(factory: factory)
+        let ready = expectation(description: "Listener ready")
+        try listener.start(port: 0, stateHandler: { state in
+            if case .ready = state { ready.fulfill() }
+        }, requestHandler: { request in
+            // Exercise the task boundary between reading and sending the response.
+            await Task.yield()
+            XCTAssertEqual(request.path, "/status")
+            return HTTPResponse(statusCode: 200, headers: ["Content-Length": "2", "Connection": "close"], body: Data("OK".utf8))
+        })
+        defer { listener.stop() }
+        await fulfillment(of: [ready], timeout: 3)
+        let port = try XCTUnwrap(factory.listener?.port?.rawValue)
+        var request = URLRequest(url: URL(string: "http://127.0.0.1:\(port)/status")!)
+        request.timeoutInterval = 3
+        let (data, response) = try await URLSession.shared.data(for: request)
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertEqual(String(decoding: data, as: UTF8.self), "OK")
+    }
+
     func testLoadOllamaModelsReturnsSortedUniqueNames() async throws {
         OllamaURLProtocol.handler = { request in
             return (
@@ -208,13 +230,80 @@ final class LocalAPIListenerFactoryTests: XCTestCase {
 }
 
 final class LocalAPISettingsTests: XCTestCase {
+    func testSettingsRoundTripPreservesModuleSecrets() async throws {
+        var settings = AppSettings()
+        settings.automation.localHTTPAPISettings.apiKeyKeychainRef = "api-key"
+        settings.automation.calDAVSettings.passwordKeychainRef = "calendar-key"
+        var connection = SummaryProviderConfiguration.openAI()
+        connection.openAIAPIKeyKeychainRef = "llm-key"
+        settings.llm.connections = [connection]
+        let store = LocalAPITestSettingsStore(settings: settings)
+        let secrets = LocalAPITestSecretStore(values: ["api-key": "secret", "calendar-key": "calendar-secret", "llm-key": "llm-secret"])
+        let service = LocalAPISettingsFixture.makeService(settingsStore: store, secretStore: secrets)
+        let read = await service.handleForTesting(method: "GET", path: "/settings", apiKey: "secret")
+        XCTAssertEqual(read.statusCode, 200)
+        let data = try JSONSerialization.data(withJSONObject: read.payload)
+        let json = String(decoding: data, as: UTF8.self)
+        XCTAssertFalse(json.contains("KeychainRef"))
+        XCTAssertFalse(json.contains("llm-secret"))
+        XCTAssertFalse(json.contains("calendar-secret"))
+        let write = await service.handleForTesting(method: "PUT", path: "/settings", body: read.payload, apiKey: "secret")
+        XCTAssertEqual(write.statusCode, 200)
+        let saved = try XCTUnwrap(store.lastSavedSettings)
+        XCTAssertEqual(saved.llm.connections.first?.openAIAPIKeyKeychainRef, "llm-key")
+        XCTAssertEqual(saved.automation.calDAVSettings.passwordKeychainRef, "calendar-key")
+        XCTAssertEqual(secrets.load(key: "llm-key"), "llm-secret")
+        XCTAssertEqual(secrets.load(key: "calendar-key"), "calendar-secret")
+    }
+
+    func testModuleSecretOmissionMaskDeletionAndInvalidType() throws {
+        let codec = OpenAICompatibleModule().settingsPayloadCodec
+        var connection = SummaryProviderConfiguration.openAI()
+        connection.openAIAPIKeyKeychainRef = "owned"
+        let secrets = LocalAPITestSecretStore(values: ["owned": "value", "foreign": "other"])
+        for value: ConfigurationPayloadValue? in [nil, .string("***"), .string("••••")] {
+            var input = connection.payload
+            input["apiKey"] = value
+            input["apiKeyKeychainRef"] = .string("foreign")
+            let imported = try codec.importing(input, previous: connection.payload, secrets: secrets)
+            XCTAssertEqual(imported["apiKeyKeychainRef"], .string("owned"))
+            XCTAssertEqual(secrets.load(key: "owned"), "value")
+        }
+        var invalid = connection.payload
+        invalid["apiKey"] = .bool(true)
+        XCTAssertThrowsError(try codec.importing(invalid, previous: connection.payload, secrets: secrets))
+        XCTAssertEqual(secrets.load(key: "owned"), "value")
+        for value: ConfigurationPayloadValue in [.null, .string("")] {
+            try secrets.save(key: "owned", value: "value")
+            var input = connection.payload
+            input["apiKey"] = value
+            let imported = try codec.importing(input, previous: connection.payload, secrets: secrets)
+            XCTAssertNil(imported["apiKeyKeychainRef"])
+            XCTAssertNil(secrets.load(key: "owned"))
+            XCTAssertEqual(secrets.load(key: "foreign"), "other")
+        }
+    }
+
+    func testSettingsRejectsInvalidAppearance() async {
+        var settings = AppSettings.default
+        settings.automation.localHTTPAPISettings.apiKeyKeychainRef = "api-key"
+        let fixture = LocalAPISettingsFixture(settings: settings, secrets: ["api-key": "secret"])
+        for value: Any in ["sepia", 42] {
+            let response = await fixture.service.handleForTesting(method: "PUT", path: "/settings",
+                body: ["application": ["appearance": value]], apiKey: "secret")
+            XCTAssertEqual(response.statusCode, 400)
+        }
+    }
+
     func testSettingsGetReturnsGroupedPayload() async throws {
         var settings = AppSettings()
         settings.automation.localHTTPAPISettings.apiKeyKeychainRef = "api-key"
         settings.application.storageRoot = "~/custom"
+        settings.application.appearance = .dark
         settings.application.liveTranscriptEnabled = true
         settings.application.postProcessingTabEnabled = true
         settings.recording.microphoneDeviceUID = "saved-input-device"
+        settings.recording.systemAudioApplicationBundleIdentifier = "us.zoom.xos"
         settings.postProcessing.rules = [
             PostProcessingRuleConfiguration(
                 id: "api-rule",
@@ -240,10 +329,12 @@ final class LocalAPISettingsTests: XCTestCase {
 
         let application = try XCTUnwrap(response.payload["application"] as? [String: Any])
         XCTAssertEqual(application["storageRoot"] as? String, "~/custom")
+        XCTAssertEqual(application["appearance"] as? String, "dark")
         XCTAssertEqual(application["liveTranscriptEnabled"] as? Bool, true)
         XCTAssertEqual(application["postProcessingTabEnabled"] as? Bool, true)
         let recording = try XCTUnwrap(response.payload["recording"] as? [String: Any])
         XCTAssertEqual(recording["microphoneDeviceUID"] as? String, "saved-input-device")
+        XCTAssertEqual(recording["systemAudioApplicationBundleIdentifier"] as? String, "us.zoom.xos")
         let postProcessing = try XCTUnwrap(response.payload["postProcessing"] as? [String: Any])
         let postProcessingRules = try XCTUnwrap(postProcessing["rules"] as? [[String: Any]])
         XCTAssertEqual(postProcessingRules.first?["id"] as? String, "api-rule")
@@ -269,6 +360,7 @@ final class LocalAPISettingsTests: XCTestCase {
             body: [
                 "application": [
                     "storageRoot": "~/grouped",
+                    "appearance": "light",
                     "locale": "ru",
                     "liveTranscriptEnabled": true,
                     "postProcessingTabEnabled": true,
@@ -276,6 +368,7 @@ final class LocalAPISettingsTests: XCTestCase {
                 "recording": [
                     "microphoneVoiceProcessingEnabled": true,
                     "microphoneDeviceUID": "put-input-device",
+                    "systemAudioApplicationBundleIdentifier": "com.microsoft.teams2",
                 ],
                 "summary": [
                     "enabled": true,
@@ -384,10 +477,12 @@ final class LocalAPISettingsTests: XCTestCase {
         let saved = try XCTUnwrap(store.lastSavedSettings)
         XCTAssertEqual(saved.application.storageRoot, "~/grouped")
         XCTAssertEqual(saved.application.locale, "ru")
+        XCTAssertEqual(saved.application.appearance, .light)
         XCTAssertTrue(saved.application.liveTranscriptEnabled)
         XCTAssertTrue(saved.application.postProcessingTabEnabled)
         XCTAssertTrue(saved.recording.microphoneVoiceProcessingEnabled)
         XCTAssertEqual(saved.recording.microphoneDeviceUID, "put-input-device")
+        XCTAssertEqual(saved.recording.systemAudioApplicationBundleIdentifier, "com.microsoft.teams2")
         XCTAssertTrue(saved.summary.enabled)
         XCTAssertEqual(saved.prompts.summary.speakerContextPromptID, "put-prompt")
         XCTAssertEqual(saved.llm.connections.first?.retryCount, 5)
@@ -611,5 +706,16 @@ private final class LocalAPITestStorageService: StorageServiceProtocol {
 private struct LocalAPITestListenerFactory: LocalAPIListenerFactoryProtocol {
     func makeListener(port: UInt16) throws -> NWListener {
         throw NSError(domain: "LocalAPITestListenerFactory", code: 1)
+    }
+}
+
+private final class EphemeralLocalAPIListenerFactory: LocalAPIListenerFactoryProtocol {
+    var listener: NWListener?
+    func makeListener(port: UInt16) throws -> NWListener {
+        let parameters = NWParameters.tcp
+        parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
+        let listener = try NWListener(using: parameters)
+        self.listener = listener
+        return listener
     }
 }

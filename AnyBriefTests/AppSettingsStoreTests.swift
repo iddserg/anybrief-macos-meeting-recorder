@@ -19,6 +19,19 @@ final class AppSettingsStoreTests: XCTestCase {
         }
     }
 
+    func testAppearanceDefaultsAndPersistence() async throws {
+        for json in ["{}", #"{"appearance":"unknown-future-choice"}"#] {
+            let settings = try JSONDecoder().decode(ApplicationSettings.self, from: Data(json.utf8))
+            XCTAssertEqual(settings.appearance, .system)
+        }
+        for choice in AppAppearance.allCases {
+            var settings = AppSettings.default
+            settings.application.appearance = choice
+            try await store.save(settings)
+            XCTAssertEqual(try store.loadSynchronously().application.appearance, choice)
+        }
+    }
+
     func testSaveCreatesConfigDirectoryAndPersistsSettings() async throws {
         var settings = AppSettings.default
         settings.automation.calDAVSettings.name = "work"
@@ -27,6 +40,7 @@ final class AppSettingsStoreTests: XCTestCase {
         settings.summary.enabled = true
         settings.prompts.summary.speakerContextPromptID = "speaker-context-id"
         settings.recording.microphoneDeviceUID = "test-input-device"
+        settings.recording.systemAudioApplicationBundleIdentifier = "us.zoom.xos"
         settings.transcription.diarizationEnabled = false
         settings.transcription.skipMicrophoneDiarization = false
         settings.transcription.fluidAudioSTTConfig.customVocabulary = ""
@@ -81,6 +95,7 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertEqual(loadedSettings.summary.enabled, settings.summary.enabled)
         XCTAssertEqual(loadedSettings.prompts.summary.speakerContextPromptID, settings.prompts.summary.speakerContextPromptID)
         XCTAssertEqual(loadedSettings.recording.microphoneDeviceUID, "test-input-device")
+        XCTAssertEqual(loadedSettings.recording.systemAudioApplicationBundleIdentifier, "us.zoom.xos")
         XCTAssertFalse(loadedSettings.transcription.diarizationEnabled)
         XCTAssertFalse(loadedSettings.transcription.skipMicrophoneDiarization)
         XCTAssertEqual(loadedSettings.transcription.fluidAudioSTTConfig.customVocabulary, "")
@@ -137,6 +152,7 @@ final class AppSettingsStoreTests: XCTestCase {
         XCTAssertEqual(loadedSettings.transcription.fluidAudioSTTConfig.customVocabulary, "")
         XCTAssertEqual(loadedSettings.transcription.whisperCppConfig.customVocabulary, "")
         XCTAssertNil(loadedSettings.recording.microphoneDeviceUID)
+        XCTAssertNil(loadedSettings.recording.systemAudioApplicationBundleIdentifier)
 
         XCTAssertFalse(loadedSettings.automation.localHTTPAPISettings.enabled)
         XCTAssertTrue(loadedSettings.summary.enabled)
@@ -353,7 +369,8 @@ final class AppSettingsStoreTests: XCTestCase {
                 title: "Custom Rule",
                 calendarTitlePattern: "Weekly Sync",
                 destinationFolderPath: "/tmp/weekly-sync",
-                filenameTemplate: "{date} {calendarTitle}.md",
+                exportContent: .both,
+                filenameTemplate: "{date} {calendarTitle} {type}.md",
                 conflictBehavior: .addSuffix
             ),
         ]

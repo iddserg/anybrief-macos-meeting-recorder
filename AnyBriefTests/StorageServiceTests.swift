@@ -24,6 +24,20 @@ final class StorageServiceTests: XCTestCase {
         }
     }
 
+    func testMetadataStoreReadsLegacyKeysAndPreservesTitlePrecedence() throws {
+        let fixture = #"{"calendarEventUID":"event-1","systemSpeakersOverride":3}"#
+        try Data(fixture.utf8).write(to: sandboxURL.appendingPathComponent(".anybrief-autopilot.json"))
+        let metadata = try XCTUnwrap(MeetingMetadataStore.load(from: sandboxURL))
+        XCTAssertEqual(metadata.calendarEventUID, "event-1")
+        XCTAssertEqual(metadata.systemSpeakersOverride, 3)
+        XCTAssertNil(metadata.calendarEvent)
+        try MeetingMetadataStore.write(title: "  Saved meeting  ", metadata: metadata, to: sandboxURL)
+        XCTAssertEqual(MeetingMetadataStore.title(in: sandboxURL), "Saved meeting")
+        let saved = try JSONSerialization.jsonObject(with: Data(contentsOf: sandboxURL.appendingPathComponent(".anybrief-autopilot.json"))) as? NSDictionary
+        let original = try JSONSerialization.jsonObject(with: Data(fixture.utf8)) as? NSDictionary
+        XCTAssertEqual(saved, original)
+    }
+
     func testCreateMeetingFolderUsesJobIDToAvoidSameMinuteCollisions() throws {
         let startedAt = date(2026, 5, 18, 12, 34, 15)
 
@@ -48,6 +62,28 @@ final class StorageServiceTests: XCTestCase {
 
         XCTAssertEqual(foundFirst?.folderURL.standardizedFileURL, first.folderURL.standardizedFileURL)
         XCTAssertEqual(foundSecond?.folderURL.standardizedFileURL, second.folderURL.standardizedFileURL)
+    }
+
+    func testCallStatisticsPersistsDailyCountsDurationsAndDeduplicatesJobs() async throws {
+        let fileURL = sandboxURL.appendingPathComponent("call-statistics.json", isDirectory: false)
+        let now = Date()
+        let calendar = Calendar.current
+        let yesterday = calendar.date(byAdding: .day, value: -1, to: calendar.startOfDay(for: now))!
+            .addingTimeInterval(12 * 60 * 60)
+        let service = CallStatisticsService(fileURL: fileURL)
+
+        try await service.recordCall(jobID: "job-a", startedAt: yesterday, duration: 3_600)
+        try await service.recordCall(jobID: "job-b", startedAt: yesterday, duration: 1_800)
+        try await service.recordCall(jobID: "job-a", startedAt: yesterday, duration: 4_200)
+
+        let reloadedService = CallStatisticsService(fileURL: fileURL)
+        let statistics = await reloadedService.dailyStatistics(days: 7, now: now)
+        let yesterdayStatistics = statistics.first {
+            calendar.isDate($0.date, inSameDayAs: yesterday)
+        }
+
+        XCTAssertEqual(yesterdayStatistics?.callCount, 2)
+        XCTAssertEqual(yesterdayStatistics?.duration, 6_000)
     }
 
     #if DEBUG

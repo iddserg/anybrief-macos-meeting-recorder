@@ -16,6 +16,32 @@ struct PostProcessingExportResult: Equatable {
 }
 
 actor PostProcessingService {
+    private struct ExportRecord: Codable {
+        let destinationPaths: [String]
+        let exportedAt: Date
+    }
+
+    private static let exportRecordFilename = ".anybrief-export.json"
+
+    private enum Artifact: CaseIterable, Equatable {
+        case summary
+        case transcript
+
+        var sourceFilename: String {
+            switch self {
+            case .summary: return "summary.md"
+            case .transcript: return "transcript.txt"
+            }
+        }
+
+        var typeToken: String {
+            switch self {
+            case .summary: return "summary"
+            case .transcript: return "transcript"
+            }
+        }
+    }
+
     private let fileManager: FileManager
     private let logger: @Sendable (String, LoggingService.LogLevel) async -> Void
 
@@ -27,7 +53,7 @@ actor PostProcessingService {
         self.logger = logger
     }
 
-    func exportSummaryIfNeeded(
+    func exportIfNeeded(
         from meetingFolderURL: URL,
         settings: PostProcessingSettings,
         calendarEvent: CalendarEvent?
@@ -35,77 +61,120 @@ actor PostProcessingService {
         guard settings.enabled else {
             return skipped(source: meetingFolderURL, message: "Post-processing is disabled.")
         }
-        let summaryURL = meetingFolderURL.appendingPathComponent("summary.md", isDirectory: false)
-        guard fileManager.fileExists(atPath: summaryURL.path) else {
-            return skipped(source: summaryURL, message: "summary.md does not exist.")
-        }
-
         let loadedCalendarEvent = calendarEvent ?? Self.loadStoredCalendarEvent(from: meetingFolderURL)
         let title = loadedCalendarEvent?.title ?? Self.fallbackTitle(from: meetingFolderURL)
         guard let rule = settings.rules.first(where: { $0.enabled && Self.matches(title: title, rule: $0) }) else {
-            return skipped(source: summaryURL, message: "No enabled post-processing rule matched \(title).")
+            return skipped(source: meetingFolderURL, message: "No enabled post-processing rule matched \(title).")
         }
 
-        return await exportSummary(from: summaryURL, meetingFolderURL: meetingFolderURL, calendarEvent: loadedCalendarEvent, rule: rule)
+        return await export(
+            from: meetingFolderURL,
+            calendarEvent: loadedCalendarEvent,
+            rule: rule
+        )
     }
 
-    func exportSummary(
+    func export(
         from meetingFolderURL: URL,
         settings: PostProcessingSettings,
         ruleID: String
     ) async -> PostProcessingExportResult {
-        let summaryURL = meetingFolderURL.appendingPathComponent("summary.md", isDirectory: false)
         guard let rule = settings.rules.first(where: { $0.id == ruleID }) else {
-            return failed(source: summaryURL, message: "Post-processing rule was not found.")
+            return failed(source: meetingFolderURL, message: "Post-processing rule was not found.")
         }
-        return await exportSummary(
-            from: summaryURL,
-            meetingFolderURL: meetingFolderURL,
+        return await export(
+            from: meetingFolderURL,
             calendarEvent: Self.loadStoredCalendarEvent(from: meetingFolderURL),
             rule: rule
         )
     }
 
-    private func exportSummary(
-        from summaryURL: URL,
-        meetingFolderURL: URL,
+    private func export(
+        from meetingFolderURL: URL,
         calendarEvent: CalendarEvent?,
         rule: PostProcessingRuleConfiguration
     ) async -> PostProcessingExportResult {
-        guard fileManager.fileExists(atPath: summaryURL.path) else {
-            return failed(source: summaryURL, rule: rule, message: "summary.md does not exist.")
-        }
-
         let destinationFolderURL = URL(fileURLWithPath: rule.destinationFolderPath, isDirectory: true)
         var isDirectory: ObjCBool = false
         guard fileManager.fileExists(atPath: destinationFolderURL.path, isDirectory: &isDirectory), isDirectory.boolValue else {
             let message = "Destination folder does not exist: \(destinationFolderURL.path)"
             await logger(message, .warn)
-            return failed(source: summaryURL, rule: rule, message: message)
+            return failed(source: meetingFolderURL, rule: rule, message: message)
         }
 
-        let summaryContent: String
-        do {
-            summaryContent = try String(contentsOf: summaryURL, encoding: .utf8)
-        } catch {
-            return failed(source: summaryURL, rule: rule, message: error.localizedDescription)
-        }
-        if Self.frontmatterValue("status", in: summaryContent) == "partial_success" {
-            return PostProcessingExportResult(
-                ruleID: rule.id,
-                ruleTitle: rule.title,
-                status: .skipped,
-                sourceURL: summaryURL,
-                destinationURL: nil,
-                message: "Partial success summary was not exported."
+        if rule.exportContent == .both, !rule.filenameTemplate.contains("{type}") {
+            return failed(
+                source: meetingFolderURL,
+                rule: rule,
+                message: "Filename template must include {type} when exporting both files."
             )
+        }
+
+        let summaryURL = meetingFolderURL.appendingPathComponent("summary.md", isDirectory: false)
+        let summaryContent = (try? String(contentsOf: summaryURL, encoding: .utf8)) ?? ""
+        let artifacts: [Artifact]
+        switch rule.exportContent {
+        case .summary:
+            artifacts = [.summary]
+        case .transcript:
+            artifacts = [.transcript]
+        case .both:
+            artifacts = [.summary, .transcript]
+        }
+
+        var results: [PostProcessingExportResult] = []
+        for artifact in artifacts {
+            results.append(await export(
+                artifact: artifact,
+                from: meetingFolderURL,
+                to: destinationFolderURL,
+                calendarEvent: calendarEvent,
+                summaryContent: summaryContent,
+                rule: rule
+            ))
+        }
+        let exportedURLs = results.compactMap { result in
+            result.status == .exported ? result.destinationURL : nil
+        }
+        if !exportedURLs.isEmpty {
+            do {
+                try Self.writeExportRecord(exportedURLs, to: meetingFolderURL)
+            } catch {
+                await logger("Could not save export destinations for \(meetingFolderURL.path): \(error.localizedDescription)", .warn)
+            }
+        }
+        return aggregate(results, source: meetingFolderURL, rule: rule, destinationFolder: destinationFolderURL)
+    }
+
+    private func export(
+        artifact: Artifact,
+        from meetingFolderURL: URL,
+        to destinationFolderURL: URL,
+        calendarEvent: CalendarEvent?,
+        summaryContent: String,
+        rule: PostProcessingRuleConfiguration
+    ) async -> PostProcessingExportResult {
+        let sourceURL = meetingFolderURL.appendingPathComponent(artifact.sourceFilename, isDirectory: false)
+        guard fileManager.fileExists(atPath: sourceURL.path) else {
+            return skipped(source: sourceURL, rule: rule, message: "\(artifact.sourceFilename) does not exist.")
+        }
+        if artifact == .summary {
+            do {
+                let content = try String(contentsOf: sourceURL, encoding: .utf8)
+                if Self.frontmatterValue("status", in: content) == "partial_success" {
+                    return skipped(source: sourceURL, rule: rule, message: "Partial success summary was not exported.")
+                }
+            } catch {
+                return failed(source: sourceURL, rule: rule, message: error.localizedDescription)
+            }
         }
 
         let filename = Self.renderFilename(
             template: rule.filenameTemplate,
             meetingFolderURL: meetingFolderURL,
             calendarEvent: calendarEvent,
-            summaryContent: summaryContent
+            summaryContent: summaryContent,
+            type: artifact.typeToken
         )
         let destinationURL = availableDestinationURL(
             destinationFolderURL.appendingPathComponent(filename, isDirectory: false),
@@ -118,30 +187,67 @@ actor PostProcessingService {
                 ruleID: rule.id,
                 ruleTitle: rule.title,
                 status: .skipped,
-                sourceURL: summaryURL,
+                sourceURL: sourceURL,
                 destinationURL: existingURL,
                 message: "Destination file already exists."
             )
+        }
+
+        guard sourceURL.resolvingSymlinksInPath().standardizedFileURL != destinationURL.resolvingSymlinksInPath().standardizedFileURL else {
+            return failed(source: sourceURL, rule: rule, destination: destinationURL,
+                          message: "Export destination is the source file.")
         }
 
         do {
             if rule.conflictBehavior == .overwrite, fileManager.fileExists(atPath: destinationURL.path) {
                 try fileManager.removeItem(at: destinationURL)
             }
-            try fileManager.copyItem(at: summaryURL, to: destinationURL)
-            await logger("Exported summary to \(destinationURL.path)", .info)
+            try fileManager.copyItem(at: sourceURL, to: destinationURL)
+            await logger("Exported \(artifact.typeToken) to \(destinationURL.path)", .info)
             return PostProcessingExportResult(
                 ruleID: rule.id,
                 ruleTitle: rule.title,
                 status: .exported,
-                sourceURL: summaryURL,
+                sourceURL: sourceURL,
                 destinationURL: destinationURL,
-                message: "Exported."
+                message: "Exported to \(destinationURL.path)"
             )
         } catch {
-            await logger("Summary export failed for \(summaryURL.path): \(error.localizedDescription)", .warn)
-            return failed(source: summaryURL, rule: rule, destination: destinationURL, message: error.localizedDescription)
+            await logger("Export failed for \(sourceURL.path): \(error.localizedDescription)", .warn)
+            return failed(source: sourceURL, rule: rule, destination: destinationURL, message: error.localizedDescription)
         }
+    }
+
+    private func aggregate(
+        _ results: [PostProcessingExportResult],
+        source: URL,
+        rule: PostProcessingRuleConfiguration,
+        destinationFolder: URL
+    ) -> PostProcessingExportResult {
+        let exported = results.filter { $0.status == .exported }
+        let failedResults = results.filter { $0.status == .failed }
+        let status: PostProcessingExportResult.Status
+        let message: String
+        if !failedResults.isEmpty {
+            status = .failed
+            message = failedResults.map(\.message).joined(separator: " ")
+        } else if !exported.isEmpty {
+            status = .exported
+            message = exported.count == 1
+                ? exported[0].message
+                : "Exported \(exported.count) files to \(destinationFolder.path)"
+        } else {
+            status = .skipped
+            message = results.map(\.message).joined(separator: " ")
+        }
+        return PostProcessingExportResult(
+            ruleID: rule.id,
+            ruleTitle: rule.title,
+            status: status,
+            sourceURL: source,
+            destinationURL: exported.first?.destinationURL,
+            message: message
+        )
     }
 
     private func availableDestinationURL(_ url: URL, behavior: PostProcessingRuleConfiguration.ConflictBehavior) -> URL? {
@@ -167,10 +273,14 @@ actor PostProcessingService {
         }
     }
 
-    private func skipped(source: URL, message: String) -> PostProcessingExportResult {
+    private func skipped(
+        source: URL,
+        rule: PostProcessingRuleConfiguration? = nil,
+        message: String
+    ) -> PostProcessingExportResult {
         PostProcessingExportResult(
-            ruleID: nil,
-            ruleTitle: nil,
+            ruleID: rule?.id,
+            ruleTitle: rule?.title,
             status: .skipped,
             sourceURL: source,
             destinationURL: nil,
@@ -196,6 +306,33 @@ actor PostProcessingService {
 }
 
 extension PostProcessingService {
+    static func recordedDestinationURLs(
+        from meetingFolderURL: URL,
+        fileManager: FileManager = .default
+    ) -> [URL] {
+        let recordURL = meetingFolderURL.appendingPathComponent(exportRecordFilename, isDirectory: false)
+        guard let data = try? Data(contentsOf: recordURL),
+              let record = try? JSONDecoder().decode(ExportRecord.self, from: data) else {
+            return []
+        }
+        return record.destinationPaths
+            .map { URL(fileURLWithPath: $0, isDirectory: false) }
+            .filter { fileManager.fileExists(atPath: $0.path) }
+    }
+
+    private static func writeExportRecord(
+        _ destinationURLs: [URL],
+        to meetingFolderURL: URL
+    ) throws {
+        let record = ExportRecord(
+            destinationPaths: destinationURLs.map(\.path),
+            exportedAt: Date()
+        )
+        let data = try JSONEncoder().encode(record)
+        let recordURL = meetingFolderURL.appendingPathComponent(exportRecordFilename, isDirectory: false)
+        try data.write(to: recordURL, options: .atomic)
+    }
+
     static func matches(title: String, rule: PostProcessingRuleConfiguration) -> Bool {
         let pattern = rule.calendarTitlePattern.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !pattern.isEmpty else {
@@ -216,7 +353,8 @@ extension PostProcessingService {
         template: String,
         meetingFolderURL: URL,
         calendarEvent: CalendarEvent?,
-        summaryContent: String
+        summaryContent: String,
+        type: String = "summary"
     ) -> String {
         let date = calendarEvent.map { Self.filenameDateFormatter.string(from: $0.startAt) }
             ?? Self.dateFromFolder(meetingFolderURL)
@@ -227,6 +365,7 @@ extension PostProcessingService {
             "{date}": sanitizeFilenameComponent(date, maxLength: 10),
             "{calendarTitle}": sanitizeFilenameComponent(calendarTitle, maxLength: 90),
             "{topic}": sanitizeFilenameComponent(topic, maxLength: 90),
+            "{type}": sanitizeFilenameComponent(type, maxLength: 20),
         ]
         var filename = template
         for (token, value) in replacements {
@@ -243,27 +382,11 @@ extension PostProcessingService {
     }
 
     static func loadStoredCalendarEvent(from meetingFolderURL: URL) -> CalendarEvent? {
-        let metadataURL = meetingFolderURL.appendingPathComponent(".anybrief-autopilot.json", isDirectory: false)
-        guard let data = try? Data(contentsOf: metadataURL),
-              let metadata = try? JSONDecoder().decode(AutopilotRecordingMetadata.self, from: data) else {
-            return nil
-        }
-        return metadata.calendarEvent
+        MeetingMetadataStore.load(from: meetingFolderURL)?.calendarEvent
     }
 
     static func fallbackTitle(from meetingFolderURL: URL) -> String {
-        let titleURL = meetingFolderURL.appendingPathComponent(".anybrief-title", isDirectory: false)
-        if let title = try? String(contentsOf: titleURL, encoding: .utf8) {
-            let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty {
-                return trimmed
-            }
-        }
-        var name = meetingFolderURL.lastPathComponent
-        name = name.replacingOccurrences(of: #"^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}_"#, with: "", options: .regularExpression)
-        name = name.replacingOccurrences(of: #"^[a-z0-9]{10}_"#, with: "", options: .regularExpression)
-        name = name.replacingOccurrences(of: #"_\d+m$"#, with: "", options: .regularExpression)
-        return name.isEmpty ? meetingFolderURL.lastPathComponent : name
+        MeetingMetadataStore.fallbackTitle(in: meetingFolderURL)
     }
 
     static func topic(from summaryContent: String) -> String {

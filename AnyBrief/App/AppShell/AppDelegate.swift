@@ -50,7 +50,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         appStateDidChange: { [weak self] appState in
             await self?.apply(appState: appState)
         },
-        notificationService: notificationService
+        notificationService: notificationService,
+        callStatisticsService: environment.callStatisticsService
     )
     lazy var pipelineOrchestrator = PipelineOrchestrator(
         jobRepository: environment.jobRepository,
@@ -74,6 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             await self?.deliverUserNotification(category: category, title: title, body: body)
         }
     )
+    lazy var meetingImportService = MeetingImportService(storage: environment.storageService)
     lazy var startupRecoveryService = StartupRecoveryService(
         jobRepository: environment.jobRepository,
         storageService: environment.storageService,

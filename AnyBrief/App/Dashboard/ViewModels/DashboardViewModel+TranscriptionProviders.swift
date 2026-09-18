@@ -3,12 +3,9 @@ import Foundation
 
 extension DashboardViewModel {
     func refreshTranscriptionModelStatus() {
-        if selectedTranscriptionProvider == .whisperCpp {
-            transcriptionModelStatus = whisperCppModelService.status(model: whisperCppModel)
-        } else {
-            transcriptionModelStatus = transcriptionModelService.status(
-                diarizationEnabled: transcriptionDiarizationEnabled
-            )
+        if let module = try? transcriptionProviderRegistry.module(for: selectedTranscriptionProvider) {
+            transcriptionModelStatus = module.modelStatus(configuration: draftTranscriptionConfiguration(),
+                                                         diarizationEnabled: transcriptionDiarizationEnabled)
         }
         checkTranscriptionTechnologies()
     }
@@ -31,7 +28,7 @@ extension DashboardViewModel {
         Task {
             var settings = await appSettingsStore.load(using: loggingService)
             settings.transcription.diarizationEnabled = transcriptionDiarizationEnabled
-            let configuration = draftTranscriptionConfiguration(settings: settings)
+            let configuration = draftTranscriptionConfiguration()
             do {
                 let module = try transcriptionProviderRegistry.module(for: configuration.provider)
                 transcriptionTechnologyProviderTitle = module.title
@@ -68,16 +65,9 @@ extension DashboardViewModel {
                     level: .info,
                     component: "Transcription"
                 )
-                if selectedTranscriptionProvider == .whisperCpp {
-                    try await whisperCppModelService.downloadModel(named: whisperCppModel)
-                    if transcriptionDiarizationEnabled {
-                        try await transcriptionModelService.downloadDiarizationModels()
-                    }
-                } else {
-                    try await transcriptionModelService.downloadModels(
-                        diarizationEnabled: transcriptionDiarizationEnabled
-                    )
-                }
+                let module = try transcriptionProviderRegistry.module(for: selectedTranscriptionProvider)
+                try await module.downloadModels(configuration: draftTranscriptionConfiguration(),
+                                                diarizationEnabled: transcriptionDiarizationEnabled)
                 await MainActor.run {
                     refreshTranscriptionModelStatus()
                     isDownloadingTranscriptionModels = false
@@ -113,33 +103,18 @@ extension DashboardViewModel {
         }
     }
 
-    private func draftTranscriptionConfiguration(
-        settings: AppSettings
-    ) -> TranscriptionProviderConfiguration {
-        switch selectedTranscriptionProvider {
-        case .fluidAudioSTT:
-            var configuration = settings.transcription.fluidAudioSTTConfiguration
-            configuration.enabled = true
-            configuration.fluidAudioSTTConfig = FluidAudioSTTConfig(
-                speakersMode: fluidAudioSTTSpeakersMode,
-                speakersCount: fluidAudioSTTSpeakersCount,
-                threshold: fluidAudioSTTThreshold,
-                customVocabulary: fluidAudioSTTCustomVocabulary
-            )
-            return configuration
-        case .whisperCpp:
-            var configuration = settings.transcription.whisperCppConfiguration
-            configuration.enabled = true
-            configuration.whisperCppConfig = WhisperCppConfig(
-                model: whisperCppModel,
-                language: whisperCppLanguage,
-                useGPU: whisperCppUseGPU,
-                speakersMode: whisperCppSpeakersMode,
-                speakersCount: whisperCppSpeakersCount,
-                threshold: whisperCppThreshold,
-                customVocabulary: whisperCppCustomVocabulary
-            )
-            return configuration
+    func draftTranscriptionConfiguration() -> TranscriptionProviderConfiguration {
+        transcriptionProviderEntries.first { $0.provider == selectedTranscriptionProvider }
+            ?? (try? transcriptionProviderRegistry.defaultConfiguration(for: selectedTranscriptionProvider))
+            ?? TranscriptionProviderConfiguration(provider: selectedTranscriptionProvider)
+    }
+
+    func updateTranscriptionConfiguration(_ configuration: TranscriptionProviderConfiguration) {
+        if let index = transcriptionProviderEntries.firstIndex(where: { $0.provider == configuration.provider }) {
+            transcriptionProviderEntries[index] = configuration
+        } else {
+            transcriptionProviderEntries.append(configuration)
         }
+        refreshTranscriptionModelStatus()
     }
 }

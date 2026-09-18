@@ -28,7 +28,10 @@ extension DashboardView {
                             microphonePaused: viewModel.isMicrophonePaused,
                             microphoneDevices: viewModel.availableMicrophoneDevices,
                             selectedMicrophoneDeviceUID: viewModel.microphoneDeviceUID,
-                            onSelectMicrophone: viewModel.selectMicrophoneDevice
+                            onSelectMicrophone: viewModel.selectMicrophoneDevice,
+                            systemAudioApplications: viewModel.availableSystemAudioApplications,
+                            selectedSystemAudioApplicationBundleIdentifier: viewModel.systemAudioApplicationBundleIdentifier,
+                            onSelectSystemAudioApplication: viewModel.selectSystemAudioApplication
                         )
                     }
                 }
@@ -170,10 +173,10 @@ extension DashboardView {
                 .frame(width: 88, height: 88)
                 .background(
                     Circle()
-                        .fill(Color.white.opacity(0.72))
+                        .fill(ABDesign.cardBackground)
                         .overlay(
                             Circle()
-                                .stroke(Color.black.opacity(0.12), lineWidth: 1)
+                                .stroke(ABDesign.badgeBackground, lineWidth: 1)
                         )
                 )
 
@@ -223,7 +226,13 @@ extension DashboardView {
                         .foregroundStyle(ABDesign.yellow)
                 }
 
-                AutopilotDayScheduleView(events: viewModel.todayAutopilotEvents)
+                AutopilotDayScheduleView(
+                    events: viewModel.todayAutopilotEvents,
+                    onSetAutopilotEnabled: viewModel.setAutopilotEnabled,
+                    onStartRecording: viewModel.startRecording(for:),
+                    canStartRecording: viewModel.canStartRecording(for:),
+                    recordingError: viewModel.calendarRecordingError
+                )
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -231,34 +240,45 @@ extension DashboardView {
     }
 
     var settingsSection: some View {
-        sectionCard(fillsHeight: true) {
-            VStack(alignment: .leading, spacing: 22) {
-                settingsCategoryTabs
-
-                Group {
-                    switch selectedSettingsCategory {
-                    case .automation:
-                        automationSettingsGroup
-                    case .summary:
-                        summarySettingsGroup
-                    case .transcription:
-                        transcriptionSettingsGroup
-                    case .calendar:
-                        calendarAutopilotSettingsGroup
-                    case .app:
-                        appSettingsGroup
-                    }
+        VStack(spacing: 0) {
+            settingsCategoryTabs
+            Divider()
+            if selectedSettingsCategory == .summary {
+                summarySettingsGroup
+            } else if selectedSettingsCategory == .windows {
+                VStack(alignment: .leading, spacing: 0) {
+                    windowObserverSettingsGroup
                 }
-                .frame(
-                    maxWidth: .infinity,
-                    maxHeight: selectedSettingsCategory == .summary ? .infinity : nil,
-                    alignment: .topLeading
-                )
-
-                settingsSaveFooter
+                .frame(maxWidth: 800, maxHeight: .infinity, alignment: .topLeading)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(.horizontal, WorkspaceDesign.inset)
+                .padding(.vertical, 12)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        switch selectedSettingsCategory {
+                        case .windows: EmptyView()
+                        case .api: localHTTPAPISettingsGroup
+                        case .transcription: transcriptionSettingsGroup
+                        case .calendar: calendarAutopilotSettingsGroup
+                        case .app: appSettingsGroup
+                        case .microphone: microphoneSettingsGroup
+                        case .summary: EmptyView()
+                        }
+                    }
+                    .frame(maxWidth: 800, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(WorkspaceDesign.inset)
+                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            Divider()
+            settingsSaveFooter
+                .padding(.horizontal, WorkspaceDesign.inset)
+                .padding(.vertical, 12)
         }
+        .font(ABTypography.body)
+        .controlSize(.regular)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
 }

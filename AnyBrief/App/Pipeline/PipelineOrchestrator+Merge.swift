@@ -2,6 +2,7 @@ import Foundation
 
 extension PipelineOrchestrator {
     func merge(system: [TranscriptSegment], mic: [TranscriptSegment], for session: RecordingSession) async throws -> [TranscriptSegment] {
+        try Task.checkCancellation()
         await upsertJob(from: session, status: "processing", stage: .mergingTranscripts)
         await loggingService.log(
             "Merging transcripts for job \(session.jobId)",
@@ -23,6 +24,7 @@ extension PipelineOrchestrator {
         Self.appendToJobLog(
             "✅ Merge complete! \(segments.count) segments (system \(system.count), mic \(mic.count))\n" +
             "📄 Transcript: \(folder)/transcript.txt\n" +
+            "📄 Raw transcript: \(folder)/transcript_raw.txt\n" +
             "🔗 JSON: \(folder)/transcript_merged.json\n",
             at: session.paths.jobLogURL
         )

@@ -210,6 +210,15 @@ struct RecentMeetingRow: View {
             }
 
             CompactActionButton(
+                title: String(localized: "Open export path"),
+                systemImage: "square.and.arrow.up",
+                isEnabled: viewModel.canOpenExportPath(meeting),
+                identifier: "meeting.openExportPath.\(meeting.id)"
+            ) {
+                viewModel.openExportPath(meeting)
+            }
+
+            CompactActionButton(
                 title: String(localized: "Delete"),
                 systemImage: "trash",
                 isEnabled: meeting.canDelete,
@@ -307,7 +316,7 @@ private enum RecentMeetingsLayout {
     static let dateWidth: CGFloat = 86
     static let statusWidth: CGFloat = 28
     static let statusActionsGap: CGFloat = 10
-    static let actionsWidth: CGFloat = 220
+    static let actionsWidth: CGFloat = 258
     static let menuWidth: CGFloat = 136
     static let menuLabelWidth: CGFloat = 122
 }

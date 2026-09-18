@@ -7,6 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		F17000000000000000000001 /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = F17000000000000000000003 /* MarkdownUI */; };
+		AB2100000000000000000098 /* MeetingImportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2000000000000000000098 /* MeetingImportTests.swift */; };
+		AB2100000000000000000097 /* MeetingImportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2000000000000000000097 /* MeetingImportSheet.swift */; };
+		AB2100000000000000000096 /* MeetingImportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2000000000000000000096 /* MeetingImportService.swift */; };
+		AB2100000000000000000095 /* ContextualSetupHints.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2000000000000000000095 /* ContextualSetupHints.swift */; };
+		AB2100000000000000000094 /* SetupReadinessSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2000000000000000000094 /* SetupReadinessSectionView.swift */; };
 		A1000000000000000000002D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002E /* Assets.xcassets */; };
 		A1000000000000000000002B /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002C /* Localizable.xcstrings */; };
 		A93000000000000000000001 /* AnyBriefAppIcon.icns in Resources */ = {isa = PBXBuildFile; fileRef = A93000000000000000000011 /* AnyBriefAppIcon.icns */; };
@@ -165,6 +171,7 @@
 		D13400000000000000000101 /* InAppNotificationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D13400000000000000000001 /* InAppNotificationStore.swift */; };
 		D13400000000000000000102 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D13400000000000000000002 /* NotificationService.swift */; };
 		D13400000000000000000103 /* DockIconController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D13400000000000000000003 /* DockIconController.swift */; };
+		58AEC9B1DB284E89890C361D /* AppAppearanceController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4773D519F3904FD2BF3B2DB3 /* AppAppearanceController.swift */; };
 		D13400000000000000000104 /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D13400000000000000000004 /* LaunchAtLoginController.swift */; };
 		D13400000000000000000105 /* SingleInstanceLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = D13400000000000000000005 /* SingleInstanceLock.swift */; };
 		D13400000000000000000106 /* StartupRecoveryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D13400000000000000000006 /* StartupRecoveryService.swift */; };
@@ -217,6 +224,19 @@
 		D13800000000000000000151 /* WindowMatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D13800000000000000000251 /* WindowMatcherTests.swift */; };
 		D13800000000000000000153 /* WindowObserverSourceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D13800000000000000000253 /* WindowObserverSourceTests.swift */; };
 		D15000000000000000000151 /* LiveTranscriptServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D15000000000000000000251 /* LiveTranscriptServiceTests.swift */; };
+		F1B3F0303E22A2A6EAC30D7D /* MeetingMetadataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84CE16FB09735ED671749BEC /* MeetingMetadataStore.swift */; };
+		14A7CF6D2795136D7CC2D83D /* DiarizationModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A84F5E97472A4E05DE6D67 /* DiarizationModelService.swift */; };
+		6B4492F3936C2385BDEE874F /* TranscriptionSettingsFields.swift in Sources */ = {isa = PBXBuildFile; fileRef = 352189E4348AA32646D37F1B /* TranscriptionSettingsFields.swift */; };
+		D95221ED8B58E04FE9604121 /* FluidAudioSTTSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 971252D8ACF3BC9CF6C73685 /* FluidAudioSTTSettingsView.swift */; };
+		532300467404C0C7674B1824 /* WhisperCppSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C367E7E9818B6B60ECB23949 /* WhisperCppSettingsView.swift */; };
+		7628EC848A01843EC262337E /* ModuleSettingsPayloadCodec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96A113D32C7483DEFA03B96A /* ModuleSettingsPayloadCodec.swift */; };
+		AB2100000000000000000001 /* WorkspaceComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2000000000000000000001 /* WorkspaceComponents.swift */; };
+		AB2100000000000000000002 /* MeetingReaderModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2000000000000000000002 /* MeetingReaderModel.swift */; };
+		AB2100000000000000000092 /* RecordingProcessingPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2000000000000000000092 /* RecordingProcessingPlan.swift */; };
+		AB2100000000000000000091 /* MeetingTechnicalDetails.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2000000000000000000091 /* MeetingTechnicalDetails.swift */; };
+		AB2100000000000000000003 /* MeetingsWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2000000000000000000003 /* MeetingsWorkspaceView.swift */; };
+		AB2100000000000000000004 /* RecordingWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2000000000000000000004 /* RecordingWorkspaceView.swift */; };
+		AB2100000000000000000005 /* TemplatesWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB2000000000000000000005 /* TemplatesWorkspaceView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -230,6 +250,11 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		AB2000000000000000000098 /* MeetingImportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingImportTests.swift; sourceTree = "<group>"; };
+		AB2000000000000000000097 /* MeetingImportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingImportSheet.swift; sourceTree = "<group>"; };
+		AB2000000000000000000096 /* MeetingImportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingImportService.swift; sourceTree = "<group>"; };
+		AB2000000000000000000095 /* ContextualSetupHints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContextualSetupHints.swift; sourceTree = "<group>"; };
+		AB2000000000000000000094 /* SetupReadinessSectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupReadinessSectionView.swift; sourceTree = "<group>"; };
 		A10000000000000000000010 /* AnyBrief.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AnyBrief.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000011 /* AnyBriefApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnyBriefApp.swift; sourceTree = "<group>"; };
 		A10000000000000000000012 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -391,6 +416,7 @@
 		D13400000000000000000001 /* InAppNotificationStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InAppNotificationStore.swift; sourceTree = "<group>"; };
 		D13400000000000000000002 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		D13400000000000000000003 /* DockIconController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockIconController.swift; sourceTree = "<group>"; };
+		4773D519F3904FD2BF3B2DB3 /* AppAppearanceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppAppearanceController.swift; sourceTree = "<group>"; };
 		D13400000000000000000004 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
 		D13400000000000000000005 /* SingleInstanceLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleInstanceLock.swift; sourceTree = "<group>"; };
 		D13400000000000000000006 /* StartupRecoveryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StartupRecoveryService.swift; sourceTree = "<group>"; };
@@ -402,15 +428,15 @@
 		D13700000000000000000203 /* AutomationEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationEvent.swift; sourceTree = "<group>"; };
 		D13700000000000000000204 /* AutomationAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationAction.swift; sourceTree = "<group>"; };
 		D13700000000000000000205 /* AutomationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationEngine.swift; sourceTree = "<group>"; };
-		D13700000000000000000206 /* AutopilotRecordingMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutopilotRecordingMetadata.swift; sourceTree = "<group>"; };
+		D13700000000000000000206 /* AutopilotRecordingMetadata.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AutopilotRecordingMetadata.swift; path = AnyBrief/App/Core/MeetingMetadata/AutopilotRecordingMetadata.swift; sourceTree = SOURCE_ROOT; };
 		D1370000000000000000020B /* AutomationActionResolver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationActionResolver.swift; sourceTree = "<group>"; };
 		D1370000000000000000020C /* AutomationActionHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutomationActionHandler.swift; sourceTree = "<group>"; };
 		D13700000000000000000207 /* CalDAVCalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalDAVCalendarService.swift; sourceTree = "<group>"; };
 		D13700000000000000000208 /* CalDAVConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalDAVConfig.swift; sourceTree = "<group>"; };
 		D13700000000000000000209 /* CalDAVModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalDAVModule.swift; sourceTree = "<group>"; };
 		D1370000000000000000020A /* CalDAVAutomationSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalDAVAutomationSource.swift; sourceTree = "<group>"; };
-		D1370000000000000000020D /* CalendarParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarParticipant.swift; sourceTree = "<group>"; };
-		D1370000000000000000020E /* CalendarEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEvent.swift; sourceTree = "<group>"; };
+		D1370000000000000000020D /* CalendarParticipant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CalendarParticipant.swift; path = AnyBrief/App/Core/MeetingMetadata/CalendarParticipant.swift; sourceTree = SOURCE_ROOT; };
+		D1370000000000000000020E /* CalendarEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CalendarEvent.swift; path = AnyBrief/App/Core/MeetingMetadata/CalendarEvent.swift; sourceTree = SOURCE_ROOT; };
 		D1370000000000000000020F /* CalendarFetchCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarFetchCoordinator.swift; sourceTree = "<group>"; };
 		D13700000000000000000210 /* CalDAVCalendarParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalDAVCalendarParser.swift; sourceTree = "<group>"; };
 		D13700000000000000000211 /* CalDAVErrors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalDAVErrors.swift; sourceTree = "<group>"; };
@@ -443,6 +469,19 @@
 		D13800000000000000000251 /* WindowMatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowMatcherTests.swift; sourceTree = "<group>"; };
 		D13800000000000000000253 /* WindowObserverSourceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowObserverSourceTests.swift; sourceTree = "<group>"; };
 		D15000000000000000000251 /* LiveTranscriptServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveTranscriptServiceTests.swift; sourceTree = "<group>"; };
+		84CE16FB09735ED671749BEC /* MeetingMetadataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = MeetingMetadataStore.swift; path = AnyBrief/App/Core/MeetingMetadata/MeetingMetadataStore.swift; sourceTree = SOURCE_ROOT; };
+		C4A84F5E97472A4E05DE6D67 /* DiarizationModelService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = DiarizationModelService.swift; path = AnyBrief/App/Transcription/DiarizationModelService.swift; sourceTree = SOURCE_ROOT; };
+		352189E4348AA32646D37F1B /* TranscriptionSettingsFields.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TranscriptionSettingsFields.swift; path = AnyBrief/App/Transcription/TranscriptionSettingsFields.swift; sourceTree = SOURCE_ROOT; };
+		971252D8ACF3BC9CF6C73685 /* FluidAudioSTTSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FluidAudioSTTSettingsView.swift; path = AnyBrief/App/TranscriptionProviders/FluidAudioSTT/FluidAudioSTTSettingsView.swift; sourceTree = SOURCE_ROOT; };
+		C367E7E9818B6B60ECB23949 /* WhisperCppSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = WhisperCppSettingsView.swift; path = AnyBrief/App/TranscriptionProviders/WhisperCpp/WhisperCppSettingsView.swift; sourceTree = SOURCE_ROOT; };
+		96A113D32C7483DEFA03B96A /* ModuleSettingsPayloadCodec.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ModuleSettingsPayloadCodec.swift; path = AnyBrief/App/Core/Settings/ModuleSettingsPayloadCodec.swift; sourceTree = SOURCE_ROOT; };
+		AB2000000000000000000001 /* WorkspaceComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkspaceComponents.swift; sourceTree = "<group>"; };
+		AB2000000000000000000002 /* MeetingReaderModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingReaderModel.swift; sourceTree = "<group>"; };
+		AB2000000000000000000092 /* RecordingProcessingPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingProcessingPlan.swift; sourceTree = "<group>"; };
+		AB2000000000000000000091 /* MeetingTechnicalDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingTechnicalDetails.swift; sourceTree = "<group>"; };
+		AB2000000000000000000003 /* MeetingsWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeetingsWorkspaceView.swift; sourceTree = "<group>"; };
+		AB2000000000000000000004 /* RecordingWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingWorkspaceView.swift; sourceTree = "<group>"; };
+		AB2000000000000000000005 /* TemplatesWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplatesWorkspaceView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -450,6 +489,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F17000000000000000000001 /* MarkdownUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -539,7 +579,6 @@
 				D13700000000000000000204 /* AutomationAction.swift */,
 				D1370000000000000000020B /* AutomationActionResolver.swift */,
 				D1370000000000000000020C /* AutomationActionHandler.swift */,
-				D13700000000000000000206 /* AutopilotRecordingMetadata.swift */,
 				A92000000000000000000011 /* AutopilotService.swift */,
 			);
 			path = Automation;
@@ -581,8 +620,6 @@
 				D14300000000000000000205 /* CalDAVAutomationSettings.swift */,
 				D13700000000000000000208 /* CalDAVConfig.swift */,
 				D1370000000000000000020A /* CalDAVAutomationSource.swift */,
-				D1370000000000000000020D /* CalendarParticipant.swift */,
-				D1370000000000000000020E /* CalendarEvent.swift */,
 				D1370000000000000000020F /* CalendarFetchCoordinator.swift */,
 				D13700000000000000000210 /* CalDAVCalendarParser.swift */,
 				D13700000000000000000211 /* CalDAVErrors.swift */,
@@ -637,6 +674,7 @@
 				D14500000000000000000208 /* PipelineOrchestrator+JobState.swift */,
 				ED9385677A46461CAC060B83 /* PipelineOrchestrator+TranscriptCleanup.swift */,
 				D13600000000000000000001 /* FinalizationService.swift */,
+				AB2000000000000000000096 /* MeetingImportService.swift */,
 				D13600000000000000000002 /* AudioConversionService.swift */,
 				D13600000000000000000003 /* BundlePackagingService.swift */,
 			);
@@ -646,6 +684,8 @@
 		D13200000000000000000401 /* Transcription */ = {
 			isa = PBXGroup;
 			children = (
+				352189E4348AA32646D37F1B /* TranscriptionSettingsFields.swift */,
+				C4A84F5E97472A4E05DE6D67 /* DiarizationModelService.swift */,
 				D13200000000000000000203 /* TranscriptionService.swift */,
 				D13200000000000000000201 /* TranscriptionProviderContracts.swift */,
 				D13200000000000000000202 /* TranscriptionProviderRegistry.swift */,
@@ -676,6 +716,7 @@
 		D13200000000000000000404 /* FluidAudioSTT */ = {
 			isa = PBXGroup;
 			children = (
+				971252D8ACF3BC9CF6C73685 /* FluidAudioSTTSettingsView.swift */,
 				D13200000000000000000205 /* FluidAudioSTTModule.swift */,
 				D14400000000000000000201 /* FluidAudioSTTConfig.swift */,
 				A30000000000000000000011 /* FluidAudioSTTProvider.swift */,
@@ -688,6 +729,7 @@
 		F16000000000000000000401 /* WhisperCpp */ = {
 			isa = PBXGroup;
 			children = (
+				C367E7E9818B6B60ECB23949 /* WhisperCppSettingsView.swift */,
 				F16000000000000000000201 /* WhisperCppConfig.swift */,
 				F16000000000000000000202 /* WhisperCppModule.swift */,
 				F16000000000000000000203 /* WhisperCppProvider.swift */,
@@ -771,6 +813,11 @@
 		D13100000000000000001001 /* Core */ = {
 			isa = PBXGroup;
 			children = (
+				96A113D32C7483DEFA03B96A /* ModuleSettingsPayloadCodec.swift */,
+				84CE16FB09735ED671749BEC /* MeetingMetadataStore.swift */,
+				D13700000000000000000206 /* AutopilotRecordingMetadata.swift */,
+				D1370000000000000000020D /* CalendarParticipant.swift */,
+				D1370000000000000000020E /* CalendarEvent.swift */,
 				D14300000000000000000301 /* Settings */,
 				D14400000000000000000002 /* Keychain */,
 				D14400000000000000000003 /* Logging */,
@@ -865,6 +912,7 @@
 			isa = PBXGroup;
 			children = (
 				D13400000000000000000003 /* DockIconController.swift */,
+				4773D519F3904FD2BF3B2DB3 /* AppAppearanceController.swift */,
 				D13400000000000000000004 /* LaunchAtLoginController.swift */,
 				D13400000000000000000005 /* SingleInstanceLock.swift */,
 				D13400000000000000000006 /* StartupRecoveryService.swift */,
@@ -928,6 +976,9 @@
 		D13200000000000000001001 /* ViewModels */ = {
 			isa = PBXGroup;
 			children = (
+				AB2000000000000000000002 /* MeetingReaderModel.swift */,
+				AB2000000000000000000092 /* RecordingProcessingPlan.swift */,
+				AB2000000000000000000091 /* MeetingTechnicalDetails.swift */,
 				D13200000000000000000001 /* DashboardViewModel+Settings.swift */,
 				D13200000000000000000002 /* DashboardViewModel+SummaryProviders.swift */,
 				D13200000000000000000003 /* DashboardViewModel+TranscriptionProviders.swift */,
@@ -946,6 +997,11 @@
 		D13100000000000000001004 /* Sections */ = {
 			isa = PBXGroup;
 			children = (
+				AB2000000000000000000097 /* MeetingImportSheet.swift */,
+				AB2000000000000000000094 /* SetupReadinessSectionView.swift */,
+				AB2000000000000000000005 /* TemplatesWorkspaceView.swift */,
+				AB2000000000000000000004 /* RecordingWorkspaceView.swift */,
+				AB2000000000000000000003 /* MeetingsWorkspaceView.swift */,
 				D13100000000000000000007 /* OverviewSectionView.swift */,
 				D13100000000000000000008 /* NotificationsSectionView.swift */,
 				D13100000000000000000009 /* SummarySettingsSectionView.swift */,
@@ -966,6 +1022,8 @@
 		D13100000000000000001005 /* Components */ = {
 			isa = PBXGroup;
 			children = (
+				AB2000000000000000000095 /* ContextualSetupHints.swift */,
+				AB2000000000000000000001 /* WorkspaceComponents.swift */,
 				D13100000000000000000006 /* ABDesign.swift */,
 				D1310000000000000000000F /* DashboardLayoutComponents.swift */,
 				D13100000000000000000011 /* AudioLevelMetersView.swift */,
@@ -1012,6 +1070,7 @@
 				A40000000000000000000012 /* TranscriptMergeServiceTests.swift */,
 				A50000000000000000000012 /* SummarizationServiceTests.swift */,
 				F10000000000000000000251 /* PostProcessingServiceTests.swift */,
+				AB2000000000000000000098 /* MeetingImportTests.swift */,
 				E50000000000000000000011 /* PipelineRobustnessTests.swift */,
 				D1350000000000000000001E /* SummaryProviderRegistryTests.swift */,
 				D13700000000000000000251 /* AutomationSourceRegistryTests.swift */,
@@ -1045,6 +1104,7 @@
 			);
 			name = AnyBrief;
 			packageProductDependencies = (
+				F17000000000000000000003 /* MarkdownUI */,
 			);
 			productName = AnyBrief;
 			productReference = A10000000000000000000010 /* AnyBrief.app */;
@@ -1096,6 +1156,9 @@
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
 			productRefGroup = A10000000000000000000032 /* Products */;
+			packageReferences = (
+				F17000000000000000000002 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */,
+			);
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -1123,6 +1186,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7628EC848A01843EC262337E /* ModuleSettingsPayloadCodec.swift in Sources */,
+				532300467404C0C7674B1824 /* WhisperCppSettingsView.swift in Sources */,
+				D95221ED8B58E04FE9604121 /* FluidAudioSTTSettingsView.swift in Sources */,
+				6B4492F3936C2385BDEE874F /* TranscriptionSettingsFields.swift in Sources */,
+				14A7CF6D2795136D7CC2D83D /* DiarizationModelService.swift in Sources */,
+				F1B3F0303E22A2A6EAC30D7D /* MeetingMetadataStore.swift in Sources */,
 				A10000000000000000000001 /* AnyBriefApp.swift in Sources */,
 				A10000000000000000000002 /* AppDelegate.swift in Sources */,
 				D14500000000000000000101 /* AppDelegate+Lifecycle.swift in Sources */,
@@ -1174,16 +1243,28 @@
 				D13400000000000000000101 /* InAppNotificationStore.swift in Sources */,
 				D13400000000000000000102 /* NotificationService.swift in Sources */,
 				D13400000000000000000103 /* DockIconController.swift in Sources */,
+				58AEC9B1DB284E89890C361D /* AppAppearanceController.swift in Sources */,
 				D13400000000000000000104 /* LaunchAtLoginController.swift in Sources */,
 				D13400000000000000000105 /* SingleInstanceLock.swift in Sources */,
 				D13400000000000000000106 /* StartupRecoveryService.swift in Sources */,
 				D13600000000000000000101 /* FinalizationService.swift in Sources */,
+				AB2100000000000000000096 /* MeetingImportService.swift in Sources */,
 				D13600000000000000000102 /* AudioConversionService.swift in Sources */,
 				D13600000000000000000103 /* BundlePackagingService.swift in Sources */,
 				F10000000000000000000001 /* PostProcessingSettings.swift in Sources */,
 				F10000000000000000000002 /* PostProcessingService.swift in Sources */,
 				D13100000000000000000104 /* DashboardStatusLabels.swift in Sources */,
 				D13100000000000000000105 /* DashboardView.swift in Sources */,
+				AB2100000000000000000095 /* ContextualSetupHints.swift in Sources */,
+				AB2100000000000000000097 /* MeetingImportSheet.swift in Sources */,
+				AB2100000000000000000094 /* SetupReadinessSectionView.swift in Sources */,
+				AB2100000000000000000005 /* TemplatesWorkspaceView.swift in Sources */,
+				AB2100000000000000000004 /* RecordingWorkspaceView.swift in Sources */,
+				AB2100000000000000000003 /* MeetingsWorkspaceView.swift in Sources */,
+				AB2100000000000000000002 /* MeetingReaderModel.swift in Sources */,
+				AB2100000000000000000092 /* RecordingProcessingPlan.swift in Sources */,
+				AB2100000000000000000091 /* MeetingTechnicalDetails.swift in Sources */,
+				AB2100000000000000000001 /* WorkspaceComponents.swift in Sources */,
 				D14500000000000000000109 /* DashboardNavigation.swift in Sources */,
 				D1450000000000000000010A /* DashboardView+Sidebar.swift in Sources */,
 				D1450000000000000000010B /* DashboardView+Content.swift in Sources */,
@@ -1326,6 +1407,7 @@
 				A40000000000000000000002 /* TranscriptMergeServiceTests.swift in Sources */,
 				A50000000000000000000002 /* SummarizationServiceTests.swift in Sources */,
 				F10000000000000000000151 /* PostProcessingServiceTests.swift in Sources */,
+				AB2100000000000000000098 /* MeetingImportTests.swift in Sources */,
 				E50000000000000000000001 /* PipelineRobustnessTests.swift in Sources */,
 				D1350000000000000000000E /* SummaryProviderRegistryTests.swift in Sources */,
 				D13700000000000000000151 /* AutomationSourceRegistryTests.swift in Sources */,
@@ -1368,7 +1450,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.16;
+				MARKETING_VERSION = 2.1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = pro.anybrief;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -1396,7 +1478,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				MARKETING_VERSION = 1.0.16;
+				MARKETING_VERSION = 2.1.3;
 				PRODUCT_BUNDLE_IDENTIFIER = pro.anybrief;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
@@ -1510,6 +1592,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		F17000000000000000000002 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/gonzalezreal/swift-markdown-ui";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		F17000000000000000000003 /* MarkdownUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = F17000000000000000000002 /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
+			productName = MarkdownUI;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A10000000000000000000060 /* Project object */;
 }

@@ -4,6 +4,37 @@ import XCTest
 
 /// Tests `stt` invocation details for the FluidAudio STT provider.
 final class FluidAudioSTTProviderTests: XCTestCase {
+    func testNoSpeechExitProducesEmptyResultButOtherFailuresStillThrow() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let executable = root.appendingPathComponent("stt")
+        let log = root.appendingPathComponent("job.log")
+        let combined = root.appendingPathComponent("system_combined.txt")
+        let provider = FluidAudioSTTProvider(sttURLResolver: { executable }, timeoutResolver: { _ in 5 })
+        for (message, status, expectsEmpty) in [
+            ("❌ Error: No speech detected in audio", 1, true),
+            ("Error: No speech detected in audio", 1, true),
+            ("Error: model missing", 1, false),
+            ("", 1, false),
+            ("❌ Error: No speech detected in audio", 2, false),
+        ] {
+            try "❌ Error: No speech detected in audio\n".write(to: log, atomically: true, encoding: .utf8)
+            try "stale speech".write(to: combined, atomically: true, encoding: .utf8)
+            try "#!/bin/sh\nprintf '%s\\n' '\(message)'\nexit \(status)\n".write(to: executable, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: executable.path)
+            do {
+                let segments = try await provider.transcribe(wavURL: root.appendingPathComponent("system.wav"),
+                    outputDir: root, sourceTrack: .system, settings: .default, logURL: log)
+                XCTAssertTrue(expectsEmpty, "Unexpected success for \(message), exit \(status)")
+                XCTAssertTrue(segments.isEmpty)
+                XCTAssertEqual(try String(contentsOf: combined, encoding: .utf8), "")
+            } catch {
+                XCTAssertFalse(expectsEmpty, "Unexpected error: \(error)")
+            }
+        }
+    }
+
     func testModelStatusUsesFluidAudioSpeakerDiarizationCacheDirectory() throws {
         let fileManager = FileManager.default
         let modelsURL = fileManager.temporaryDirectory

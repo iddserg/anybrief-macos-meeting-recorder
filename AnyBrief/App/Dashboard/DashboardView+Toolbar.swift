@@ -8,104 +8,60 @@ extension DashboardView {
     }
 
     var toolbar: some View {
-        ZStack {
-            HStack(alignment: .center, spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(selectedPane.title)
-                        .font(ABTypography.pageTitle)
-                        .foregroundStyle(ABDesign.primaryText)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    if viewModel.needsPermissionSetup {
-                        Text("Permissions are needed before recording.", comment: "Toolbar subtitle when required permissions are missing")
-                            .font(ABTypography.pageSubtitle)
-                            .foregroundStyle(ABDesign.secondaryText)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    } else if let activity = viewModel.currentActivity {
-                        Text(activity.summaryText)
-                            .font(ABTypography.pageSubtitle)
-                            .foregroundStyle(ABDesign.secondaryText)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    } else {
-                        Text("No active job.", comment: "Message when no recording job is active")
-                            .font(ABTypography.pageSubtitle)
-                            .foregroundStyle(ABDesign.secondaryText)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    }
-                }
-                .frame(minWidth: 142, maxWidth: .infinity, minHeight: 46, maxHeight: 46, alignment: .leading)
-                .layoutPriority(1)
-
-                HStack(alignment: .center, spacing: 6) {
-                    Spacer(minLength: 2)
-
-                    if viewModel.needsPermissionSetup {
-                        toolbarButton(
-                            title: String(localized: "Permissions"),
-                            systemImage: "lock.shield",
-                            isEnabled: true
-                        ) {
-                            selectPane(.permissions)
-                        }
-                    } else {
-                        statusPill(for: viewModel.effectiveAppState)
-                    }
-
-                    toolbarRecordButton(
-                        title: String(localized: "Start Recording"),
-                        label: String(localized: "Record"),
-                        systemImage: "record.circle",
-                        isEnabled: viewModel.canStartRecording,
-                        action: viewModel.startRecording
-                    )
-                    .accessibilityIdentifier("toolbar.record.start")
-
-                    toolbarIconButton(
-                        title: viewModel.isStoppingRecording
-                            ? String(localized: "Stopping Recording")
-                            : String(localized: "Stop Recording"),
-                        systemImage: viewModel.isStoppingRecording ? "hourglass" : "stop.circle",
-                        role: .destructive,
-                        isEnabled: viewModel.effectiveAppState == .recording && !viewModel.isStoppingRecording,
-                        action: viewModel.stopRecording
-                    )
-                    .accessibilityIdentifier("toolbar.record.stop")
-
-                    toolbarIconButton(
-                        title: viewModel.isMicrophonePaused
-                            ? String(localized: "Resume Microphone")
-                            : String(localized: "Pause Microphone"),
-                        systemImage: viewModel.isMicrophonePaused ? "mic.fill" : "mic.slash",
-                        help: viewModel.isMicrophonePaused
-                            ? String(localized: "Resume microphone capture.")
-                            : String(localized: "Write silence to the microphone track while keeping system audio recording."),
-                        isEnabled: viewModel.effectiveAppState == .recording,
-                        action: viewModel.toggleMicrophonePause
-                    )
-                    .accessibilityIdentifier("toolbar.mic.toggle")
-
-                    toolbarIconButton(
-                        title: String(localized: "Force-stop Current Recording"),
-                        systemImage: "xmark.circle",
-                        help: String(localized: "Force-stop the active recording if the normal stop button is stuck."),
-                        isEnabled: viewModel.currentActivity != nil,
-                        action: viewModel.forceStopRecording
-                    )
-                    .accessibilityIdentifier("toolbar.record.forceStop")
-
-                }
-                .frame(height: 34, alignment: .center)
-                .fixedSize(horizontal: true, vertical: false)
+        HStack(spacing: 12) {
+            Text(selectedPane.title).font(ABTypography.bodySemibold).lineLimit(1)
+            Spacer(minLength: 12)
+            Button { showingMeetingImport = true } label: {
+                Label("Import", systemImage: "square.and.arrow.down")
+            }.buttonStyle(WorkspaceButtonStyle())
+                .help(Text("Import audio or video…"))
+                .accessibilityIdentifier("toolbar.meeting.import")
+            if viewModel.needsPermissionSetup {
+                Button("Permissions") { selectPane(.permissions) }.buttonStyle(WorkspaceButtonStyle())
             }
-            .padding(.horizontal, 16)
+            if let activity = viewModel.recordingActivity ?? viewModel.processingActivities.first {
+                Button { selectPane(activity.isRecording ? .status : .processing) } label: {
+                    HStack(spacing: 6) {
+                        Circle().fill(activity.isRecording ? ABDesign.red : ABDesign.accent).frame(width: 6, height: 6)
+                        Text(activity.isRecording ? Self.recordingTime(activity.duration) : activity.detailedStageLabel)
+                            .monospacedDigit().lineLimit(1)
+                    }.font(ABTypography.captionMedium)
+                }.buttonStyle(.plain).help(Text("Current Activity"))
+                if activity.isRecording || viewModel.isStoppingRecording {
+                    Button(action: viewModel.stopRecording) {
+                        Label(viewModel.isStoppingRecording ? String(localized: "Stopping Recording") : String(localized: "Stop Recording"), systemImage: "stop")
+                    }
+                    .buttonStyle(WorkspaceButtonStyle(prominent: true, destructive: true))
+                    .disabled(viewModel.isStoppingRecording)
+                    .accessibilityIdentifier("toolbar.record.stop")
+                }
+                if activity.isRecording {
+                    Button(action: viewModel.forceStopRecording) {
+                        Image(systemName: "xmark.octagon")
+                            .frame(width: 16)
+                    }
+                    .buttonStyle(WorkspaceButtonStyle())
+                    .help(Text("Force-stop Current Recording"))
+                    .accessibilityLabel(Text("Force-stop Current Recording"))
+                    .accessibilityIdentifier("toolbar.record.forceStop")
+                }
+            }
+            if viewModel.effectiveAppState != .recording && !viewModel.isStoppingRecording {
+                Button(action: viewModel.startRecording) {
+                    Label(viewModel.isStartingRecording ? String(localized: "Starting") : String(localized: "New recording"), systemImage: "record.circle")
+                }.buttonStyle(WorkspaceButtonStyle(prominent: true))
+                    .disabled(!viewModel.canStartRecording).accessibilityIdentifier("toolbar.record.start")
+            }
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 72, alignment: .center)
-        .background(ABDesign.contentBackground)
-        .zIndex(10)
+        .padding(.horizontal, WorkspaceDesign.inset).frame(height: 58)
+        .background(WorkspaceDesign.surface)
+    }
+
+    static func recordingTime(_ duration: TimeInterval) -> String {
+        let seconds = max(0, Int(duration))
+        return seconds >= 3600
+            ? String(format: "%d:%02d:%02d", seconds / 3600, (seconds / 60) % 60, seconds % 60)
+            : String(format: "%02d:%02d", seconds / 60, seconds % 60)
     }
 
     func toolbarRecordButton(
@@ -128,7 +84,7 @@ extension DashboardView {
                 .foregroundStyle(isEnabled ? .white : ABDesign.disabledText)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(isEnabled ? ABDesign.accent : Color.black.opacity(0.035))
+                        .fill(isEnabled ? ABDesign.accent : ABDesign.subtleBackground)
                 )
         }
         .buttonStyle(.plain)
@@ -194,7 +150,7 @@ extension DashboardView {
 
     func toolbarBackground(for role: ToolbarButtonRole, isEnabled: Bool) -> Color {
         guard isEnabled else {
-            return Color.black.opacity(0.035)
+            return ABDesign.subtleBackground
         }
         switch role {
         case .plain:

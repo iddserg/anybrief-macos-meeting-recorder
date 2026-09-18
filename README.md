@@ -4,24 +4,66 @@ AnyBrief is a macOS menu bar app for recording calls, transcribing audio, and pr
 
 The app is designed as a small call autopilot: it can record manually, start and stop recording from a CalDAV calendar schedule, keep meeting files organized, and expose a localhost API for local automations.
 
+## AnyBrief 2.0 workspace
+
+The 2.0 development branch keeps the native SwiftUI app and existing recording,
+processing, provider settings, and storage formats. Its workspace has three main
+areas: Meetings, Today, and Templates. Meetings include an in-app summary
+and transcript reader plus synchronized playback of system and microphone tracks.
+The audio player can play both tracks together or isolate either source without
+changing playback position. A Technical details tab presents saved summary metadata
+as labeled sections, with selectable text and a copy action.
+Archived audio is copied to a temporary playback directory; original meeting bundles
+are never modified. Recording controls stay available while browsing other screens.
+The current recording can be renamed with the pencil beside its title; the saved
+name survives finalization and is used for summary prompt selection.
+A new recording can start while earlier meetings process. The sidebar shows the
+current recording above a separate processing pane containing all unfinished jobs.
+The recording pane previews the STT engine/model, summary prompt and fallback
+connections, and the first matching export rule and destination using saved settings.
+Export rules include a filename preview using the same renderer as actual exports.
+
+Collection lists use compact row spacing. Processing assignments put the prompt and
+LLM side by side when space allows, with longer explanations available in help popovers.
+LLM editors are scoped to connection IDs so reordering/removal cannot redirect a field edit.
+Update checks run in the background at application startup. New versions are announced
+once per launch; explicit checks also report up-to-date and error results in notifications.
+System banners respect the global notifications setting and macOS permission, while
+results remain available in the in-app notification list.
+
+Settings use the same workspace grid with persistent category tabs and a shared save
+footer. Application, transcription, calendar and automation forms scroll independently;
+LLM connections use a list and editor. Form labels and values use the same 14 pt
+type, helper text uses 12 pt, and controls share 34 pt rows with compact switches. Provider-owned forms adapt to narrow windows,
+and window-observer rules have labeled fields. Diagnostics and notifications share
+the workspace spacing. The Local API key is masked on screen and can still be copied.
+The experimental Live runtime remains in the source tree but is not exposed or
+started by the 2.0 workspace. This branch does not publish a release or update the
+website download manifests.
+
+A track for which the STT diarizer explicitly reports no speech produces an empty
+transcript instead of failing the meeting. Other tracks continue processing; other
+CLI failures still surface as errors.
+
 ## Features
 
 - Menu bar app with a dashboard window and compact macOS-style controls.
 - Separate system audio and microphone tracks, with live signal indicators.
-- Opt-in live transcript pane for recent system audio during active recording.
 - Microphone silence mode: keep the timeline intact while not recording microphone sound.
 - CalDAV autopilot for scheduled calls:
-  - starts and stops recordings around calendar events
+  - starts at the calendar event start and stops at its end
+  - switches back-to-back meetings into separate recordings at their shared boundary
+  - lets the user disable auto-stop for the current calendar recording
   - can ignore microphone audio on auto-start
   - uses calendar event title as the meeting name
   - can pass participant count from the calendar as the maximum speaker count
-- Local transcription through bundled FluidAudio `stt` or `whisper-stt` + `whisper-cli-core`.
+- Local transcription through bundled FluidAudio `stt` or `whisper-stt` + `whisper-cli-core`. Recognition settings show both engines directly and group their parameters in collapsible sections; input-device and voice-processing controls have their own Microphone tab.
 - Summary generation through configurable providers:
   - local Ollama
   - OpenAI-compatible chat completions APIs
   - trusted local CLI tools such as Codex, Claude, or opencode
-- Optional post-processing tab with rules that copy generated Markdown summaries into existing folders.
-- Meeting history with rename, delete, open summary, and reveal in Finder actions.
+- Templates for processing, prompts, and export of summaries and transcripts into existing folders.
+- Searchable meeting history with inline materials, audio playback, rename, reprocessing, export, and reveal in Finder actions.
 - Summary frontmatter with meeting metadata, including calendar data when available.
 - Local HTTP API for agents and localhost automations.
 - Permission checks, settings, logs, notifications, and static landing pages.
@@ -39,7 +81,7 @@ The app is designed as a small call autopilot: it can record manually, start and
 - `AnyBrief/App/LLM/` - shared LLM layer: `LLMService` (single entry point for all LLM calls), LLM connection settings, and the prompt collection with task assignments.
 - `AnyBrief/App/Summary/` - summary orchestration on top of `LLMService`, provider contracts/registry, metadata, and shared settings controls.
 - `AnyBrief/App/SummaryProviders/` - concrete LLM provider modules. Current providers: `OpenAICompatible`, `Ollama`, and `CLI`.
-- `AnyBrief/App/PostProcessing/` - post-summary export settings and services for copying Markdown summaries into existing external folders.
+- `AnyBrief/App/PostProcessing/` - rule-based export settings and services for copying summaries, transcripts, or both into existing external folders.
 - `AnyBrief/App/Automation/` - automation contracts, source registry, engine, events, actions, and rules.
 - `AnyBrief/App/AutomationSources/` - concrete automation source modules. Current sources: `CalDAV`, `LocalHTTPAPI`, and `WindowObserver`.
 - `AnyBrief/App/Dashboard/` - dashboard shell, view model, sections, controls, and module-owned settings bridges.
@@ -48,6 +90,8 @@ The app is designed as a small call autopilot: it can record manually, start and
 - `docs/product-development-plan.md` - current architecture plan and completed migration checklist.
 - `landing/` - static landing page. The download button expects `landing/AnyBrief.dmg`.
 - `landing-en/` - English static landing page.
+- `landing/site-header.css`, `landing/site-footer.css` and their `landing-en/` counterparts - shared localized navigation styling used by home, landing, changelog, feedback, and help pages.
+- `landing/hero-carousel.css`, `landing/hero-carousel.js` and their `landing-en/` counterparts - accessible home-page screenshot carousel; images are rendered from real SwiftUI views with synthetic data by `scripts/capture_site_v2.py`.
 - `Makefile` - build, CLI embedding, signing, and DMG packaging commands.
 
 ## Architecture
@@ -60,7 +104,7 @@ The codebase is organized around registries and provider/source modules:
 - LLM providers implement `SummaryProviderModule` and keep their config, defaults, diagnostics, DTOs, runners, and settings UI under `SummaryProviders/<Provider>/`. Runners read the prompt from `SummaryProviderInput.systemPrompt` only.
 - Transcription providers implement `TranscriptionProviderModule` and keep provider-owned config and runtime code under `TranscriptionProviders/<Provider>/`.
 - Live transcript is an isolated experimental realtime path: it captures system audio into temporary rolling chunks and uses the bundled `stt` CLI with `--transcribe-only`; it remains non-diarized, is disabled by default, and is not used as the final meeting transcript.
-- Post-processing runs after summary writing and only copies generated `summary.md` files into pre-existing destination folders matched by calendar title rules. The Post-processing pane also hosts the automatic-summary and transcript-cleanup settings.
+- Post-processing runs after transcript processing, matches calendar-title rules, and copies `summary.md`, `transcript.txt`, or both into pre-existing destination folders. Filename templates support `{type}` to distinguish the exported artifact. The Post-processing pane also hosts the automatic-summary and transcript-cleanup settings.
 - Automation sources implement `AutomationSourceModule` and keep source-owned config, diagnostics, runtime source, and settings UI under `AutomationSources/<Source>/`. `AutopilotService` builds sources from the registry only and does not know concrete source services; for example, `CalDAVCalendarService` is owned by the CalDAV module.
 - Common folders contain contracts, registries, orchestration, and shared models only.
 - Pipeline stages are the typed `JobStage` enum in `Core/Storage/Job.swift`. Its raw values are persisted in `jobs.json` and exposed by the Local HTTP API, so they must stay stable. Startup recovery resumes jobs from their persisted stage through one shared pipeline path.
@@ -126,6 +170,7 @@ Main responsibilities:
 | Area | Responsibility |
 | --- | --- |
 | `AppShell/` | App startup, app delegate extensions, menu bar, dashboard presentation, environment construction. |
+| `Core/AppLifecycle/` | Dock visibility and `AppAppearanceController`, which applies the app-wide light/dark/system appearance. |
 | `Core/Settings/` | `AppSettings`, grouped config persistence, config import/export, payload storage, and reset of old flat settings files. |
 | `Core/Keychain/` | `SecretStoreProtocol`, release Keychain store, and debug file-backed secret store. |
 | `Core/Networking/` | Neutral JSON HTTP client and retry policy. |
@@ -152,10 +197,10 @@ Primary flows:
 
 1. Manual recording: dashboard/menu -> `RecordingAdapter` -> `EmbeddedAudioRecorder` -> meeting files.
 2. Scheduled/window automation: `AutopilotService` starts `AutomationEngine`; enabled sources emit events; `AutomationActionResolver` turns events into recording actions.
-3. Live transcript: when the experimental app setting is enabled, the dashboard Live pane can start `LiveTranscriptService` while the pane is open and the user starts live transcript; it stops on pane close, toggle off, or disabling the setting.
-4. Processing: `PipelineOrchestrator` finalizes recording output, calls `TranscriptionService`, merges transcript segments, optionally runs the LLM transcript cleanup (`processing_transcript` stage: fixes recognition errors and fills in speaker names from calendar context, overwriting `transcript.txt`), and calls `SummarizationService` when automatic summaries are enabled.
+3. Live transcript: when the experimental app setting is enabled, the dashboard Live pane can start `LiveTranscriptService` while the pane is open and the user starts live transcript during an active recording; it stops on recording end, pane close, toggle off, or disabling the setting.
+4. Processing: `PipelineOrchestrator` finalizes recording output, calls `TranscriptionService`, merges transcript segments, optionally runs the LLM transcript cleanup (`processing_transcript` stage: fixes recognition errors and fills in speaker names from calendar context, reading preserved `transcript_raw.txt` and writing `transcript.txt`), and calls `SummarizationService` when automatic summaries are enabled.
 5. Summary fallback: `SummarizationService` resolves the prompt and connection chain from `prompts`/`llm` settings and calls `LLMService`, which tries connections in order until one returns a non-empty result.
-6. Post-processing: when enabled, `PostProcessingService` matches the calendar title to a rule and copies `summary.md` to the configured existing folder.
+6. Post-processing: when enabled, `PostProcessingService` matches the calendar title to a rule and copies the selected summary, transcript, or both to the configured existing folder.
 7. Admin config import: `AppSettingsConfigFile` mirrors grouped `AppSettings`; filled secret fields are moved into the active `SecretStoreProtocol` implementation.
 
 ## Requirements
@@ -265,6 +310,18 @@ make archive-signed-dmg RELEASE_ID=2026-05-22_1.0.3-microphone-fix
 
 The static landing page lives in `landing/index.html`.
 
+Search-focused Russian landing pages live in route directories under `landing/`
+(`audio-v-tekst`, `rasshifrovka-audio-na-mac`, `whisper-na-mac`,
+`protokol-soveshchaniya`, `rasshifrovka-zvonkov`, `zapis-lekcii-v-tekst`, and
+`rasshifrovka-intervyu`). They share `landing/seo-pages.css`, reuse the current
+product screenshots, and must stay listed in `landing/sitemap.xml`, `landing/llms.txt`,
+`landing/ai.txt`, and the `deploy-site` file list.
+
+The English equivalents under `landing-en/` use natural English route names:
+`audio-to-text`, `local-transcription-mac`, `whisper-for-mac`, `meeting-minutes`,
+`call-transcription`, `lecture-to-text`, and `interview-transcription`. Matching
+Russian and English pages declare reciprocal `hreflang` links.
+
 To publish a fresh signed download from a local build, prepare both site DMGs and archive the exact files that will be uploaded:
 
 ```bash
@@ -300,16 +357,17 @@ ANYBRIEF_DEPLOY_SCP_OPTS="-o StrictHostKeyChecking=accept-new"
 
 Authentication should come from your SSH key or `~/.ssh/config`; do not store server passwords in `deploy.env`.
 
-Build and deploy:
+After signing, notarizing and stapling the release DMG as described above:
 
 ```bash
-make dmg
+make site-version-manifests
+make verify-release
 make deploy-site
 ```
 
-`make deploy-site` copies `build/Release/AnyBrief.dmg` to `landing/AnyBrief.dmg`, uploads `landing/index.html` and `landing/AnyBrief.dmg` to the configured server path, and checks the configured public URL.
+`make deploy-site` validates `build/Signed/AnyBrief-signed.dmg` before any upload: signatures, stapled notarization, universal app/helper binaries, and embedded app version/build against both manifests. It copies this verified artifact to the landing download paths, uploads the sites and checks their public URLs. Source version, changelog and release artifact must agree; an unfinished newer local build cannot silently replace the published download.
 It also regenerates and uploads `landing/version.json`, which the app reads to offer a manual download when a newer version is available.
-Both sites publish a localized `changelog.html`; `version.json` points `releaseNotesURL` to that page. Update the newest release entry in `landing/changelog.html` and `landing-en/changelog.html` before publishing a new version. The deploy target uploads both changelogs and their updated sitemaps automatically.
+Both sites publish a localized `changelog.html`; `version.json` points `releaseNotesURL` to that page. Update the newest release entry in `landing/changelog.html` and `landing-en/changelog.html` before publishing a new version. The deploy target uploads both changelogs and their updated sitemaps automatically. It also synchronizes all four release labels (including JSON-LD) on each homepage with the manifests and rejects mismatched latest changelog versions. Run `python3 scripts/sync_site_version.py` to check consistency without changing files.
 
 For the signed/notarized production download, use `make prepare-site-dmgs RELEASE_ID=...` after stapling. That command copies `build/Signed/AnyBrief-signed.dmg` to both landing download paths and archives the exact published DMGs under `releases/<release-id>/published/`.
 
@@ -327,10 +385,10 @@ Calendar, automatic summaries, the local HTTP API, and call reminders are option
 
 Dashboard settings are split into tabs:
 
-- LLM - connection pool: ordered connection list, provider-owned settings views, and diagnostics. The prompt collection lives in the Prompts sidebar section; the automatic-summary toggle, speaker context, transcript cleanup, and per-task prompt/connection assignments live in the Post-processing pane (Live assignments in the Live pane).
+- LLM - connection pool: ordered connection list, provider-owned settings views, and diagnostics. The prompt collection, automatic-summary toggle, speaker context, transcript cleanup, and per-task prompt/connection assignments live in Templates. Live is not exposed in the 2.0 workspace.
 - Recognition - choose FluidAudio STT or whisper.cpp, optionally separate speakers, select the Whisper model/language, and configure a provider-specific custom vocabulary. Vocabulary lines use `Preferred term: alias 1, alias 2`; FluidAudio applies native CTC vocabulary rescoring and whisper.cpp receives the preferred terms as its initial prompt. The default diarization threshold is `0.65`; exact speaker mode forces the requested count with a fallback, while maximum and calendar modes allow fewer speakers.
   Existing grouped settings that still contain the former `0.35` default are migrated once to `0.65`; later manual changes are preserved.
-- Calendar - optional CalDAV source connection, calendar picker, and calendar autopilot rule timing.
+- Calendar - optional CalDAV source connection, calendar picker, event filter, and refresh interval.
 - App - local application behavior, Dock icon, language, and admin config import/export.
 - Integrations - automation sources such as Local HTTP API and WindowObserver.
 
@@ -411,7 +469,7 @@ Use aliases only for variants that should always be normalized to the preferred 
 
 ## LLM Connections And Prompts
 
-AnyBrief stores LLM connections as an ordered pool (`llm.connections`). Multiple connections of the same type are allowed, so an admin can configure several OpenAI-compatible endpoints, several Ollama models, or several CLI presets. Prompts are a separate collection (`prompts.items`); each task (summary, transcript cleanup, Live) gets a prompt plus a connection selection. An empty/nil connection selection means Auto: all enabled connections are tried in pool order; an explicit selection restricts the task to those connections. A prompt with `titlePatterns` overrides the assigned summary prompt when the meeting title matches. Transcript cleanup (`prompts.transcriptCleanup.enabled`) runs between transcription and summarization and overwrites `transcript.txt` with the corrected version.
+AnyBrief stores LLM connections as an ordered pool (`llm.connections`). Multiple connections of the same type are allowed, so an admin can configure several OpenAI-compatible endpoints, several Ollama models, or several CLI presets. Prompts are a separate collection (`prompts.items`); each task (summary, transcript cleanup, Live) gets a prompt plus a connection selection. An empty/nil connection selection means Auto: all enabled connections are tried in pool order; an explicit selection restricts the task to those connections. A prompt with `titlePatterns` overrides the assigned summary prompt when the meeting title matches. Transcript cleanup (`prompts.transcriptCleanup.enabled`) runs between transcription and summarization and reads `transcript_raw.txt`, writing the corrected version to `transcript.txt`. The raw file remains beside the result and is included in `bundle.zip`; retries never read the previous LLM output. If cleanup retains less than 50% of non-whitespace transcript characters, AnyBrief logs an error and continues with the original transcript.
 
 Provider implementations live in module folders:
 
@@ -636,8 +694,6 @@ The config mirrors the settings UI:
         "payload": {
           "enabled": false,
           "filter": "meeting_url_or_multiparticipant",
-          "startLeadSec": 30,
-          "stopGraceSec": 60,
           "preEndNotificationSec": 120,
           "muteMicrophone": false,
           "participantCountMode": "calendar",
@@ -669,8 +725,10 @@ Autopilot uses CalDAV events for scheduled recordings. Calendar configuration is
 Autopilot can:
 
 - record events with a meeting URL or with more than one participant
-- start before the calendar event
-- stop after the calendar event
+- start at the calendar event start
+- stop at the calendar event end
+- split back-to-back events into separate recordings at their shared boundary
+- disable auto-stop for the current recording; while disabled, later calendar events do not replace it
 - notify about start and stop
 - use the event title as the recording name
 - pass calendar participant count into recognition as an upper speaker limit when Recognition is set to "From calendar"
@@ -699,7 +757,8 @@ Typical meeting output includes:
 
 - `system.wav`
 - `mic.wav`
-- `transcript.txt`
+- `transcript_raw.txt` — merged recognition output before LLM cleanup
+- `transcript.txt` — cleaned output, or the raw text when cleanup is disabled or fails
 - `summary.md`
 - job log under `~/anybrief/logs/jobs/<job-id>.log`
 
@@ -758,3 +817,78 @@ make test-ffmpeg-mp3
 - `default.profraw` is a local coverage/runtime artifact and should not be committed.
 - `landing/AnyBrief.dmg` is a generated deploy artifact and should not be committed.
 - The app currently uses development signing by default through `CODE_SIGN_IDENTITY ?= -`.
+
+### Recovery guarantees
+
+Failed and partially completed jobs retain their audio and intermediate files at
+startup. Finalization can resume without a summary when summary generation was
+disabled or skipped. Recovery restores the saved meeting title for prompt selection.
+Cancelling processing stops the LLM fallback chain and waits for pipeline termination
+before removing cancelled artifacts. Export rules reject destinations that resolve
+to the source file.
+
+Transcription provider modules own runtime metadata and calendar speaker-limit
+overrides; the pipeline requests both through `TranscriptionService`.
+
+
+### Module boundaries
+
+`Core/MeetingMetadata/` owns `CalendarEvent`, `CalendarParticipant`,
+`AutopilotRecordingMetadata` and `MeetingMetadataStore`. Recording, recovery,
+pipeline and export share the existing on-disk metadata format through this layer.
+
+STT modules supply settings views, model status and model installation through
+`TranscriptionProviderModule`. Dashboard edits configuration envelopes. Each
+provider retains its own recognition dictionary. `Transcription/DiarizationModelService`
+owns the shared diarization models; its existing cache path is preserved.
+
+LLM and automation modules declare payload codecs and secret paths through
+`ModuleSettingsPayloadCodec`; Local HTTP API maps envelopes and delegates payload
+validation and masking. GET/PUT round trips preserve masked secrets, omission
+preserves them, and null/empty values delete them via `SecretStoreProtocol`.
+
+Run `make test-architecture` for explicit dependency guards. These guards do not
+provide compiler-enforced module isolation: the app still has one Swift target.
+
+### CLI setup guides
+
+The Russian and English sites include `/help/cli.html`, `/help/codex-cli.html`, and `/help/claude-cli.html`. They cover installation, subscription authentication, selecting the CLI in AnyBrief, billing limits, and troubleshooting. Guide styles and command-copy behavior are shared in `help/cli-guide.css` and `help/cli-guide.js` within each static site.
+
+Window Observer settings use a compact rule list and a selected-rule editor. The list footer adds/removes rules; the last rule can be disabled instead of deleting it and restoring defaults. Editor bindings resolve rules by ID.
+
+### Feedback
+
+Diagnostics → Feedback opens the localized website `/feedback.html` in the browser. The URL has no app data or diagnostic parameters. The page links to the owner's Google Form for ideas, bugs and questions; users review and submit the message themselves. Replace the responder URL in `landing/feedback.html` and `landing-en/feedback.html` if the form changes. The app link stays unchanged. No recordings, transcripts, logs, settings or credentials are attached automatically.
+
+### Appearance
+
+Settings → Application → Appearance offers Light, Dark, and System (the default).
+Changes preview immediately; use Save settings to keep the selection for the next
+launch. System follows macOS appearance changes automatically. The preference is
+stored as `application.appearance` (`light`, `dark`, `system`) and is included in
+configuration import/export and the grouped Local API `/settings` payload.
+
+### Проверка готовности
+
+В приложении откройте **Диагностика → Готовность к работе**: экран показывает разрешения для записи, готовность распознавания и настройку саммари. Кнопки ведут в соответствующие разделы настроек. Проверки используют сохранённые настройки; доступность LLM проверяется отдельно в настройках подключения.
+
+Возле кнопки записи появляются короткие подсказки о недостающих разрешениях, распознавании и саммари. Во вкладке «Саммари» можно перейти к настройке LLM, создать саммари из готового транскрипта или повторить неудачную попытку. Для ручного запуска достаточно сохранить подключение и промпт; включать автосаммари не обязательно.
+
+### Import an existing meeting
+
+Use **Import** next to **New recording** to select an audio or video file (for
+example a Voice Memos M4A, WAV/MP3, or MP4/MOV). Set the meeting title and date,
+then choose **Import and process**. macOS extracts the first audio track; the
+original file stays unchanged. Unsupported files and videos without audio show
+an error before a meeting is added. Preparation can be cancelled.
+
+The imported meeting uses the saved recognition, transcript cleanup, summary
+and export settings and appears in the regular processing queue and meeting
+list. Automatic summary still requires an enabled LLM connection, a prompt and
+the automatic-summary setting. Recording permissions are not needed for import.
+The audio tab shows one imported track, with the same playback and reprocessing
+actions as recorded meetings. Interrupted processing can resume at startup.
+
+The meeting Audio tab includes **Do not process microphone**. This per-meeting preference applies when repeating transcription or all processing: only system audio enters recognition, cleanup and summary. The microphone recording remains available for playback. Clear the checkbox and repeat processing to include it again.
+
+Today → **Start recording** starts a manual recording with the selected calendar event’s title, participants and metadata. It works for past and future events with Autopilot off. Stop it manually; the scheduled event end does not stop the recording.

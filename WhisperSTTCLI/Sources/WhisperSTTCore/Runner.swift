@@ -67,7 +67,15 @@ public final class WhisperSTTRunner: @unchecked Sendable {
             if options.verbose {
                 arguments.append("--verbose")
             }
-            try execute(sttURL, arguments: arguments, logURL: logURL, verbose: options.verbose)
+            let noSpeech = try execute(sttURL, arguments: arguments, logURL: logURL,
+                                       verbose: options.verbose, acceptsNoSpeech: true)
+            if noSpeech {
+                for suffix in ["combined.txt", "transcript.txt"] {
+                    try "".write(to: outputDirectory.appendingPathComponent("\(baseName)_\(suffix)"),
+                                 atomically: true, encoding: .utf8)
+                }
+                return
+            }
         }
 
         if options.whisperJSONPath == nil {
@@ -215,31 +223,47 @@ public final class WhisperSTTRunner: @unchecked Sendable {
             .first(where: fileManager.isExecutableFile)
     }
 
+    @discardableResult
     private func execute(
         _ executableURL: URL,
         arguments: [String],
         logURL: URL,
-        verbose: Bool
-    ) throws {
+        verbose: Bool,
+        acceptsNoSpeech: Bool = false
+    ) throws -> Bool {
         if !fileManager.fileExists(atPath: logURL.path) {
             fileManager.createFile(atPath: logURL.path, contents: nil)
         }
         let logHandle = try FileHandle(forWritingTo: logURL)
-        try logHandle.seekToEnd()
+        let logStart = try logHandle.seekToEnd()
         defer { try? logHandle.close() }
 
         let process = Process()
         process.executableURL = executableURL
         process.arguments = arguments
-        process.standardOutput = verbose ? FileHandle.standardOutput : logHandle
-        process.standardError = verbose ? FileHandle.standardError : logHandle
+        process.standardOutput = verbose && !acceptsNoSpeech ? FileHandle.standardOutput : logHandle
+        process.standardError = verbose && !acceptsNoSpeech ? FileHandle.standardError : logHandle
         try process.run()
         process.waitUntilExit()
+        if acceptsNoSpeech {
+            let input = try FileHandle(forReadingFrom: logURL)
+            defer { try? input.close() }
+            try input.seek(toOffset: logStart)
+            let data = try input.readToEnd() ?? Data()
+            if verbose { FileHandle.standardOutput.write(data) }
+            let lastLine = String(decoding: data, as: UTF8.self).split(whereSeparator: \.isNewline)
+                .last?.trimmingCharacters(in: .whitespaces)
+            if process.terminationStatus == 1,
+               lastLine == "❌ Error: No speech detected in audio" || lastLine == "Error: No speech detected in audio" {
+                return true
+            }
+        }
         guard process.terminationStatus == 0 else {
             throw WhisperSTTError.processFailed(
                 name: executableURL.lastPathComponent,
                 status: process.terminationStatus
             )
         }
+        return false
     }
 }

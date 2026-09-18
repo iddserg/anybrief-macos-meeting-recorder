@@ -2,6 +2,29 @@ import XCTest
 @testable import AnyBrief
 
 final class TranscriptionServiceTests: XCTestCase {
+    func testProviderModulesOwnMetadataAndCalendarSpeakerLimits() async throws {
+        let service = TranscriptionService()
+        for provider in TranscriptionProviderID.allCases {
+            var settings = AppSettings.default
+            let configuration = try TranscriptionProviderRegistry.default.defaultConfiguration(for: provider)
+            settings.transcription.providers = [configuration]
+            let overridden = await service.applyingSpeakerLimit(20, to: settings)
+            let metadata = try await service.metadata(settings: overridden)
+            XCTAssertEqual(metadata.provider, provider.rawValue)
+            XCTAssertEqual(metadata.speakersMode, "max")
+            XCTAssertEqual(metadata.speakersCount, 10)
+            XCTAssertEqual(metadata.systemSpeakers, "max:10")
+            XCTAssertFalse(metadata.model.isEmpty)
+            XCTAssertEqual(overridden.transcription.providers[0].id, configuration.id)
+            XCTAssertEqual(settings.transcription.providers[0], configuration)
+            var noDiarization = overridden
+            noDiarization.transcription.diarizationEnabled = false
+            let disabled = try await service.metadata(settings: noDiarization)
+            XCTAssertEqual(disabled.systemSpeakers, "disabled")
+            XCTAssertEqual(disabled.microphoneSpeakers, 0)
+        }
+    }
+
     func testTranscribeDispatchesThroughConfiguredProvider() async throws {
         let service = TranscriptionService(providerRegistry: TranscriptionProviderRegistry(modules: [
             FakeTranscriptionModule(),

@@ -4,7 +4,7 @@ import SwiftUI
 extension DashboardView {
     var permissionsSection: some View {
         sectionCard {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 24) {
                 HStack(alignment: .top, spacing: 12) {
                     permissionIcon(
                         systemImage: "shield.lefthalf.filled",
@@ -40,17 +40,13 @@ extension DashboardView {
                         }
                     }
                 }
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(ABDesign.hairline, lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+
 
                 HStack(alignment: .center, spacing: 18) {
                     permissionIcon(
                         systemImage: "shield.checkerboard",
-                        foreground: Color(red: 0.000, green: 0.416, blue: 0.933),
-                        background: Color(red: 0.000, green: 0.416, blue: 0.933).opacity(0.12),
+                        foreground: ABDesign.info,
+                        background: ABDesign.info.opacity(0.12),
                         size: 38
                     )
 
@@ -58,7 +54,7 @@ extension DashboardView {
                         Text("Your privacy is our priority", comment: "Permissions privacy card title")
                             .font(ABTypography.bodySemibold)
                             .foregroundStyle(ABDesign.primaryText)
-                        Text("AnyBrief does not send audio or screenshots to third parties. All data is processed locally on your device.", comment: "Permissions privacy card description")
+                        Text("Audio recording and transcription always happen locally. Transcript text is sent to an external LLM only if you configure and enable that connection yourself; audio and screenshots are never sent.", comment: "Permissions privacy card description")
                             .font(ABTypography.caption)
                             .foregroundStyle(ABDesign.secondaryText)
                             .fixedSize(horizontal: false, vertical: true)
@@ -70,10 +66,10 @@ extension DashboardView {
                 .padding(.vertical, 10)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(red: 0.965, green: 0.979, blue: 1.000))
+                        .fill(ABDesign.infoBackground)
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
-                                .stroke(Color(red: 0.000, green: 0.416, blue: 0.933).opacity(0.12), lineWidth: 1)
+                                .stroke(ABDesign.info.opacity(0.12), lineWidth: 1)
                         )
                 )
             }
@@ -147,7 +143,7 @@ extension DashboardView {
                     .font(ABTypography.caption)
                     .foregroundStyle(ABDesign.secondaryText)
                     .fixedSize(horizontal: false, vertical: true)
-                    .lineLimit(2)
+
             }
 
             Spacer(minLength: 12)
@@ -157,7 +153,7 @@ extension DashboardView {
             permissionActionButton(permission)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(ABDesign.cardBackground)
     }
@@ -204,14 +200,22 @@ extension DashboardView {
                 viewModel.openSystemSettings(for: permission)
             }
         } label: {
-            Label(permissionActionTitle(for: permission), systemImage: "gearshape")
+            HStack(spacing: 8) {
+                if viewModel.requestingPermissionIDs.contains(permission.id) {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "gearshape")
+                }
+                Text(permissionActionTitle(for: permission))
+            }
                 .font(ABTypography.bodyMedium)
                 .lineLimit(1)
                 .padding(.horizontal, 12)
-                .frame(width: 190, height: 32)
+                .frame(width: 170, height: 34)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .disabled(viewModel.requestingPermissionIDs.contains(permission.id))
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(ABDesign.controlBackground)

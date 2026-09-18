@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 enum TranscriptionProviderID: String, Codable, CaseIterable, Identifiable {
     case fluidAudioSTT = "fluid_audio_stt"
@@ -128,11 +129,38 @@ protocol TranscriptionProviderModule {
 
     func defaultConfiguration() -> TranscriptionProviderConfiguration
     func normalize(_ configuration: TranscriptionProviderConfiguration) -> TranscriptionProviderConfiguration
+    func metadata(configuration: TranscriptionProviderConfiguration, diarizationEnabled: Bool) -> TranscriptionMetadata
+    func applyingSpeakerLimit(_ count: Int, to configuration: TranscriptionProviderConfiguration) -> TranscriptionProviderConfiguration
+    func modelStatus(configuration: TranscriptionProviderConfiguration, diarizationEnabled: Bool) -> TranscriptionModelStatus
+    func downloadModels(configuration: TranscriptionProviderConfiguration, diarizationEnabled: Bool) async throws
+    @MainActor func makeSettingsView(configuration: Binding<TranscriptionProviderConfiguration>, diarizationEnabled: Bool) -> AnyView
     func makeProvider(context: TranscriptionRuntimeContext) -> any TranscriptionProvider
     func makeDiagnostics(context: TranscriptionDiagnosticsContext) -> any TranscriptionDiagnostics
 }
 
 extension TranscriptionProviderModule {
+    func modelStatus(configuration: TranscriptionProviderConfiguration, diarizationEnabled: Bool) -> TranscriptionModelStatus {
+        TranscriptionModelStatus(modelsDirectoryURL: FileManager.default.temporaryDirectory,
+                                 isInstalled: false, installedSizeBytes: 0, missingRelativePaths: [])
+    }
+    func downloadModels(configuration: TranscriptionProviderConfiguration, diarizationEnabled: Bool) async throws {
+        throw TranscriptionError(message: "This provider does not support model installation.")
+    }
+    @MainActor func makeSettingsView(configuration: Binding<TranscriptionProviderConfiguration>, diarizationEnabled: Bool) -> AnyView {
+        AnyView(EmptyView())
+    }
+
+    func metadata(configuration: TranscriptionProviderConfiguration, diarizationEnabled: Bool) -> TranscriptionMetadata {
+        TranscriptionMetadata(provider: id.rawValue, model: "", acceleration: nil,
+                              diarizationEnabled: diarizationEnabled, speakersMode: "auto", speakersCount: 0,
+                              systemSpeakers: diarizationEnabled ? "auto" : "disabled",
+                              microphoneSpeakers: diarizationEnabled ? 1 : 0, threshold: 0)
+    }
+
+    func applyingSpeakerLimit(_ count: Int, to configuration: TranscriptionProviderConfiguration) -> TranscriptionProviderConfiguration {
+        configuration
+    }
+
     func normalize(_ configuration: TranscriptionProviderConfiguration) -> TranscriptionProviderConfiguration {
         configuration
     }
@@ -152,5 +180,42 @@ struct TranscriptionTimeoutError: LocalizedError {
 
     var errorDescription: String? {
         "stt timed out after \(Int(timeout)) seconds for \(wavPath)."
+    }
+}
+
+struct TranscriptionMetadata {
+    let provider: String
+    let model: String
+    let language: String?
+    let acceleration: String?
+    let diarizationEnabled: Bool
+    let speakersMode: String
+    let speakersCount: Int
+    let systemSpeakers: String
+    let microphoneSpeakers: Int
+    let threshold: Double
+
+    init(
+        provider: String = TranscriptionProviderID.fluidAudioSTT.rawValue,
+        model: String = "nvidia-parakeet-tdt-0.6b-v3",
+        language: String? = nil,
+        acceleration: String? = "core_ml",
+        diarizationEnabled: Bool = true,
+        speakersMode: String,
+        speakersCount: Int,
+        systemSpeakers: String,
+        microphoneSpeakers: Int,
+        threshold: Double
+    ) {
+        self.provider = provider
+        self.model = model
+        self.language = language
+        self.acceleration = acceleration
+        self.diarizationEnabled = diarizationEnabled
+        self.speakersMode = speakersMode
+        self.speakersCount = speakersCount
+        self.systemSpeakers = systemSpeakers
+        self.microphoneSpeakers = microphoneSpeakers
+        self.threshold = threshold
     }
 }

@@ -80,7 +80,7 @@ extension DashboardView {
             .fill(Color.clear)
             .overlay {
                 RoundedRectangle(cornerRadius: 1)
-                    .fill(Color.black.opacity(0.16))
+                    .fill(ABDesign.border)
                     .frame(width: 2)
             }
             .contentShape(Rectangle())
@@ -148,7 +148,7 @@ extension DashboardView {
             .foregroundStyle(viewModel.canClearLiveTranscript ? ABDesign.primaryText : ABDesign.disabledText)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.black.opacity(0.04))
+                    .fill(ABDesign.subtleBackground)
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
                             .stroke(ABDesign.hairline, lineWidth: 1)
@@ -172,7 +172,7 @@ extension DashboardView {
             .foregroundStyle(viewModel.liveTranscriptSnapshot.isUserEnabled ? ABDesign.red : .white)
             .background(
                 RoundedRectangle(cornerRadius: 8)
-                    .fill(viewModel.liveTranscriptSnapshot.isUserEnabled ? Color.black.opacity(0.04) : ABDesign.accent)
+                    .fill(viewModel.liveTranscriptSnapshot.isUserEnabled ? ABDesign.subtleBackground : ABDesign.accent)
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
                             .stroke(viewModel.liveTranscriptSnapshot.isUserEnabled ? ABDesign.hairline : Color.clear, lineWidth: 1)
@@ -199,7 +199,7 @@ extension DashboardView {
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.black.opacity(0.16), lineWidth: 1)
+                    .stroke(ABDesign.border, lineWidth: 1)
             )
         }
     }
@@ -232,7 +232,7 @@ extension DashboardView {
             }
         }
         .padding(10)
-        .background(Color.black.opacity(0.025))
+        .background(ABDesign.subtleBackground)
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
@@ -275,7 +275,7 @@ extension DashboardView {
                 .foregroundStyle(viewModel.canProcessLiveTranscriptPrompt ? .white : ABDesign.disabledText)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(viewModel.canProcessLiveTranscriptPrompt ? ABDesign.accent : Color.black.opacity(0.04))
+                        .fill(viewModel.canProcessLiveTranscriptPrompt ? ABDesign.accent : ABDesign.subtleBackground)
                 )
                 .disabled(!viewModel.canProcessLiveTranscriptPrompt)
             }
@@ -285,11 +285,11 @@ extension DashboardView {
                 .scrollContentBackground(.hidden)
                 .padding(10)
                 .frame(minHeight: 126, maxHeight: 170)
-                .background(Color.white.opacity(0.86))
+                .background(ABDesign.controlBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.black.opacity(0.16), lineWidth: 1)
+                        .stroke(ABDesign.border, lineWidth: 1)
                 )
 
             if let message = viewModel.liveTranscriptPromptMessage {
@@ -300,7 +300,7 @@ extension DashboardView {
             }
         }
         .padding(10)
-        .background(Color.black.opacity(0.025))
+        .background(ABDesign.subtleBackground)
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }
 
@@ -321,7 +321,7 @@ extension DashboardView {
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.black.opacity(0.16), lineWidth: 1)
+                    .stroke(ABDesign.border, lineWidth: 1)
             )
         }
     }

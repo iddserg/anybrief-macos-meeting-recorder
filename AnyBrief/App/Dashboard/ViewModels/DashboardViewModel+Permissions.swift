@@ -21,7 +21,9 @@ extension DashboardViewModel {
     }
 
     func requestScreenRecording() {
+        guard requestingPermissionIDs.insert("screenRecording").inserted else { return }
         Task {
+            defer { requestingPermissionIDs.remove("screenRecording") }
             let status = await permissionService.request(.screenRecording)
             await refreshPermissions()
             if status != .granted {
@@ -33,14 +35,18 @@ extension DashboardViewModel {
     }
 
     func requestMicrophone() {
+        guard requestingPermissionIDs.insert("microphone").inserted else { return }
         Task {
+            defer { requestingPermissionIDs.remove("microphone") }
             _ = await permissionService.request(.microphone)
             await refreshPermissions()
         }
     }
 
     func requestNotifications() {
+        guard requestingPermissionIDs.insert("notifications").inserted else { return }
         Task {
+            defer { requestingPermissionIDs.remove("notifications") }
             _ = await permissionService.request(.notifications)
             await refreshPermissions()
         }

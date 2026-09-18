@@ -1,8 +1,22 @@
 import AVFoundation
 import Foundation
 
-/// Finalizes the meeting folder and persistent state after summary generation succeeds or falls back.
+/// Converts and packages a completed recording, independently of whether summary generation succeeded.
 actor FinalizationService {
+    enum Completion: Sendable {
+        case completed
+        case partialSuccess(Job.ErrorState)
+
+        var errorState: Job.ErrorState? {
+            switch self {
+            case .completed:
+                return nil
+            case let .partialSuccess(errorState):
+                return errorState
+            }
+        }
+    }
+
     private let storageService: StorageServiceProtocol
     private let jobRepository: JobRepositoryProtocol
     private let loggingService: LoggingService
@@ -42,7 +56,13 @@ actor FinalizationService {
         }
     }
 
-    func finalize(session: RecordingSession, summary: String, startingAt stage: JobStage = .convertingAudio) async throws {
+    func finalize(
+        session: RecordingSession,
+        summary: String,
+        startingAt stage: JobStage = .convertingAudio,
+        completion: Completion = .completed
+    ) async throws {
+        try Task.checkCancellation()
         _ = summary
 
         let duration = try await durationResolver(session)
@@ -50,19 +70,24 @@ actor FinalizationService {
         let micMP3URL = session.paths.folderURL.appendingPathComponent("microphone_audio.mp3", isDirectory: false)
         let bundleURL = session.paths.folderURL.appendingPathComponent("bundle.zip", isDirectory: false)
 
+        try Task.checkCancellation()
         switch stage {
         case .convertingAudio:
             try audioConversionService.convertToMP3(inputURL: session.paths.systemWavURL, outputURL: systemMP3URL)
-            try audioConversionService.convertToMP3(inputURL: session.paths.micWavURL, outputURL: micMP3URL)
+            if session.hasMicrophoneTrack {
+                try audioConversionService.convertToMP3(inputURL: session.paths.micWavURL, outputURL: micMP3URL)
+            }
+            try Task.checkCancellation()
             await jobRepository.upsert(await packagingJob(from: session))
             fallthrough
         case .packaging:
-            try bundlePackagingService.createBundleZip(in: session.paths.folderURL, bundleURL: bundleURL)
+            try bundlePackagingService.createBundleZip(in: session.paths.folderURL, bundleURL: bundleURL, includeMicrophone: session.hasMicrophoneTrack)
         default:
             throw TranscriptionError(message: "Unsupported finalization stage \(stage.rawValue).")
         }
 
-        // Keep only summary.md, transcript.txt, bundle.zip in the folder.
+        try Task.checkCancellation()
+        // Keep summary.md, transcript_raw.txt, transcript.txt and bundle.zip accessible.
         // Audio and JSON are already inside bundle.zip.
         for url in [systemMP3URL, micMP3URL,
                     session.paths.folderURL.appendingPathComponent("transcript_merged.json")] {
@@ -75,7 +100,7 @@ actor FinalizationService {
             try fileManager.removeItem(at: finalTmpURL)
         }
 
-        let completedJob = await updatedJob(from: session, completedAt: Date())
+        let completedJob = await updatedJob(from: session, completedAt: Date(), completion: completion)
         await jobRepository.upsert(completedJob)
         await loggingService.log(
             "Finalization completed for job \(session.jobId) at \(finalFolderURL.path)",
@@ -85,20 +110,35 @@ actor FinalizationService {
         await appStateDidChange(.idle)
     }
 
-    private func updatedJob(from session: RecordingSession, completedAt: Date) async -> Job {
+    private func updatedJob(
+        from session: RecordingSession,
+        completedAt: Date,
+        completion: Completion
+    ) async -> Job {
         let now = Date()
+        let status: String
+        let stage: JobStage
+        switch completion {
+        case .completed:
+            status = "completed"
+            stage = .completed
+        case .partialSuccess:
+            status = "partial_success"
+            stage = .partialSuccess
+        }
         if let existingJob = await jobRepository.get(id: session.jobId) {
             return Job(
                 id: existingJob.id,
                 meetingId: existingJob.meetingId,
-                status: "completed",
-                stage: .completed,
+                status: status,
+                stage: stage,
                 progressPercent: 100,
                 source: existingJob.source,
                 createdAt: existingJob.createdAt,
                 updatedAt: now,
                 completedAt: completedAt,
                 retryCount: existingJob.retryCount,
+                error: completion.errorState,
                 warnings: Self.mergedWarnings(existingJob.warnings, session.recordingWarnings)
             )
         }
@@ -106,13 +146,14 @@ actor FinalizationService {
         return Job(
             id: session.jobId,
             meetingId: session.jobId,
-            status: "completed",
-            stage: .completed,
+            status: status,
+            stage: stage,
             progressPercent: 100,
             source: session.source,
             createdAt: session.startedAt,
             updatedAt: now,
             completedAt: completedAt,
+            error: completion.errorState,
             warnings: session.recordingWarnings
         )
     }

@@ -38,42 +38,7 @@ struct SummaryMetadata {
     }
 }
 
-struct SummaryTranscriptionMetadata {
-    let provider: String
-    let model: String
-    let language: String?
-    let acceleration: String?
-    let diarizationEnabled: Bool
-    let speakersMode: String
-    let speakersCount: Int
-    let systemSpeakers: String
-    let microphoneSpeakers: Int
-    let threshold: Double
-
-    init(
-        provider: String = TranscriptionProviderID.fluidAudioSTT.rawValue,
-        model: String = "nvidia-parakeet-tdt-0.6b-v3",
-        language: String? = nil,
-        acceleration: String? = "core_ml",
-        diarizationEnabled: Bool = true,
-        speakersMode: String,
-        speakersCount: Int,
-        systemSpeakers: String,
-        microphoneSpeakers: Int,
-        threshold: Double
-    ) {
-        self.provider = provider
-        self.model = model
-        self.language = language
-        self.acceleration = acceleration
-        self.diarizationEnabled = diarizationEnabled
-        self.speakersMode = speakersMode
-        self.speakersCount = speakersCount
-        self.systemSpeakers = systemSpeakers
-        self.microphoneSpeakers = microphoneSpeakers
-        self.threshold = threshold
-    }
-}
+typealias SummaryTranscriptionMetadata = TranscriptionMetadata
 
 struct SummaryAudioMetadata {
     let system: SummaryAudioTrackMetadata

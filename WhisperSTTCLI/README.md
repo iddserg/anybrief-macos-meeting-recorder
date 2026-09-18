@@ -84,3 +84,8 @@ swift test
 
 The repository `Makefile` builds the wrapper, pins and builds whisper.cpp, then
 copies both executables alongside `stt` into `bin/`.
+
+If the diarizer exits with its explicit `No speech detected in audio` result, the
+wrapper writes empty combined/transcript outputs and succeeds without running
+Whisper. Other nonzero exits remain errors; only the current invocation log is
+examined.

@@ -3,7 +3,7 @@ import SwiftUI
 
 extension DashboardView {
     var notificationsSection: some View {
-        sectionCard(title: String(localized: "Notifications")) {
+        sectionCard() {
             let notifications = notificationStore.notifications
             if notifications.isEmpty {
                 emptyState(
@@ -22,11 +22,7 @@ extension DashboardView {
                         }
                     }
                 }
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(ABDesign.hairline, lineWidth: 1)
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+
             }
         }
     }
@@ -35,39 +31,57 @@ extension DashboardView {
         HStack(alignment: .top, spacing: 10) {
             permissionIcon(
                 systemImage: notificationIcon(for: notification.category),
-                foreground: ABDesign.accent,
-                background: ABDesign.accent.opacity(0.10),
+                foreground: notification.isRead ? ABDesign.secondaryText : ABDesign.accent,
+                background: notification.isRead ? ABDesign.subtleBackground : ABDesign.accent.opacity(0.10),
                 size: 28
             )
 
             VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 4) {
                         Text(notification.title)
                             .font(ABTypography.bodySemibold)
-                        .foregroundStyle(ABDesign.primaryText)
+                        .foregroundStyle(notification.isRead ? ABDesign.secondaryText : ABDesign.primaryText)
                         .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                     Text(Self.timestampFormatter.string(from: notification.createdAt))
                         .font(ABTypography.caption)
                         .foregroundStyle(ABDesign.secondaryText)
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Text(notification.body)
                     .font(ABTypography.caption)
-                    .foregroundStyle(ABDesign.secondaryText)
+                    .foregroundStyle(notification.isRead ? ABDesign.disabledText : ABDesign.secondaryText)
+                    .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if notification.category == NotificationService.Category.updateAvailable.rawValue,
+               viewModel.availableUpdate != nil {
+                Button("Download update", action: viewModel.openAvailableUpdateDownload)
+                    .buttonStyle(WorkspaceButtonStyle())
+            }
+
+            if notification.category == NotificationService.Category.recordingSourceUnavailable.rawValue,
+               viewModel.effectiveAppState == .recording {
+                Button("Stop Recording", action: viewModel.stopRecording)
+                    .buttonStyle(WorkspaceButtonStyle(prominent: true, destructive: true))
+                    .disabled(viewModel.isStoppingRecording)
             }
 
             Spacer(minLength: 10)
         }
-        .padding(.horizontal, 10)
+        .padding(.horizontal, 0)
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(ABDesign.cardBackground)
+        .opacity(notification.isRead ? 0.72 : 1)
     }
 
     func notificationIcon(for category: String) -> String {
         switch category {
+        case NotificationService.Category.updateAvailable.rawValue, NotificationService.Category.updateCheck.rawValue:
+            return "arrow.down.circle"
         case NotificationService.Category.recordingStarted.rawValue:
             return "record.circle"
         case NotificationService.Category.recordingStopped.rawValue:
@@ -76,7 +90,9 @@ extension DashboardView {
             return "timer"
         case NotificationService.Category.summaryReady.rawValue:
             return "doc.text"
-        case NotificationService.Category.recordingInterrupted.rawValue, "recording_error":
+        case NotificationService.Category.recordingInterrupted.rawValue,
+             NotificationService.Category.recordingSourceUnavailable.rawValue,
+             "recording_error":
             return "exclamationmark.octagon"
         case NotificationService.Category.autoSkipped.rawValue:
             return "person.crop.circle.badge.exclamationmark"

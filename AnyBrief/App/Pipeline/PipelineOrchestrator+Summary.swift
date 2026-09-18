@@ -8,7 +8,8 @@ extension PipelineOrchestrator {
         segments: [TranscriptSegment],
         for session: RecordingSession,
         forceEnabled: Bool = false
-    ) async -> SummaryOutcome {
+    ) async throws -> SummaryOutcome {
+        try Task.checkCancellation()
         let settings = await effectiveSettings(for: session)
         guard settings.summary.enabled || forceEnabled else {
             await loggingService.log(
@@ -51,7 +52,7 @@ extension PipelineOrchestrator {
         let durationMinutes = Self.durationMinutes(from: segments)
         let speakerCount = Set(segments.map(\.speaker)).count
         let completedAt = Date()
-        let metadata = await summaryMetadata(settings: settings, session: session, segments: segments)
+        let metadata = try await summaryMetadata(settings: settings, session: session, segments: segments)
         let summaryInput = await summarizationService.summarizationInput(transcript: transcript, metadata: metadata)
 
         do {
@@ -59,7 +60,7 @@ extension PipelineOrchestrator {
             let summaryResult = try await summarizationService.summarizeWithMetadata(
                 transcript: summaryInput,
                 settings: settings,
-                meetingTitle: session.title,
+                meetingTitle: MeetingMetadataStore.storedTitle(in: session.paths.folderURL) ?? session.title,
                 workingDirectory: session.paths.folderURL,
                 transcriptURL: transcriptURL,
                 progress: { [weak self] event in
@@ -71,6 +72,7 @@ extension PipelineOrchestrator {
                 }
             )
             let elapsed = Date().timeIntervalSince(startedAt)
+            try Task.checkCancellation()
             try await summarizationService.writeSummary(
                 summaryResult.summary,
                 to: session.paths.folderURL,
@@ -81,11 +83,6 @@ extension PipelineOrchestrator {
                 provider: summaryResult.provider,
                 metadata: metadata,
                 includeFooter: !settings.application.disableSummaryFooter
-            )
-            await runPostProcessingExport(
-                for: session,
-                settings: settings,
-                calendarEvent: metadata.calendar
             )
             await loggingService.log(
                 "Summary completed for job \(session.jobId): provider=\(summaryResult.provider.type.rawValue), model=\(summaryResult.provider.model), transcript_chars=\(transcript.count), summary_input_chars=\(summaryInput.count), metadata_calendar=\(metadata.calendar == nil ? "missing" : "present"), summary_chars=\(summaryResult.summary.count), elapsed_sec=\(String(format: "%.1f", elapsed))",
@@ -99,6 +96,7 @@ extension PipelineOrchestrator {
             )
             return .ready(summaryResult.summary)
         } catch {
+            if Task.isCancelled || error is CancellationError { throw CancellationError() }
             let summaryDiagnostics = [
                 error.localizedDescription,
                 "connections=\(settings.summaryLLMChain.map { "\($0.provider.rawValue)(timeout_sec=\($0.effectiveTimeoutSec),attempts=\($0.effectiveRetryCount))" }.joined(separator: ","))",
@@ -122,32 +120,19 @@ extension PipelineOrchestrator {
                 summaryError: "summary_api_failed",
                 includeFooter: !settings.application.disableSummaryFooter
             )
-            let partialJob = await updatedJob(
-                from: session,
-                status: "partial_success",
-                stage: .partialSuccess,
-                completedAt: completedAt,
-                errorState: Job.ErrorState(
-                    code: "summary_api_failed",
-                    message: summaryDiagnostics,
-                    stage: "summarizing",
-                    retryable: false
-                )
+            let errorState = Job.ErrorState(
+                code: "summary_api_failed",
+                message: summaryDiagnostics,
+                stage: JobStage.summarizing.rawValue,
+                retryable: false
             )
-            await jobRepository.upsert(partialJob)
             await loggingService.log(
                 "Summary fallback created for job \(session.jobId): \(summaryDiagnostics)",
                 level: .warn,
                 component: "Pipeline"
             )
             Self.appendToJobLog("WARN: Summary unavailable: \(summaryDiagnostics)\n", at: session.paths.jobLogURL)
-            await notifyUser(
-                NotificationService.Category.summaryReady.rawValue,
-                "AnyBrief",
-                String(localized: "Your brief is ready")
-            )
-            await appStateDidChange(.idle)
-            return .fallback
+            return .fallback(errorState)
         }
     }
 
@@ -156,7 +141,7 @@ extension PipelineOrchestrator {
         settings: AppSettings,
         calendarEvent: CalendarEvent?
     ) async {
-        let result = await postProcessingService.exportSummaryIfNeeded(
+        let result = await postProcessingService.exportIfNeeded(
             from: session.paths.folderURL,
             settings: settings.postProcessing,
             calendarEvent: calendarEvent
@@ -164,10 +149,10 @@ extension PipelineOrchestrator {
         switch result.status {
         case .exported:
             if let destination = result.destinationURL {
-                Self.appendToJobLog("✅ Summary export: \(destination.path)\n", at: session.paths.jobLogURL)
+                Self.appendToJobLog("✅ Export: \(destination.path)\n", at: session.paths.jobLogURL)
             }
         case .failed:
-            Self.appendToJobLog("WARN: Summary export failed: \(result.message)\n", at: session.paths.jobLogURL)
+            Self.appendToJobLog("WARN: Export failed: \(result.message)\n", at: session.paths.jobLogURL)
         case .skipped:
             break
         }
@@ -185,53 +170,10 @@ extension PipelineOrchestrator {
         settings: AppSettings,
         session: RecordingSession,
         segments: [TranscriptSegment]
-    ) async -> SummaryMetadata {
-        let provider = settings.transcription.activeProviderConfiguration.provider
-        let transcriptionConfig: FluidAudioSTTConfig
-        let transcriptionModel: String
-        let transcriptionLanguage: String?
-        let transcriptionAcceleration: String?
-        switch provider {
-        case .fluidAudioSTT:
-            transcriptionConfig = settings.transcription.fluidAudioSTTConfig
-            transcriptionModel = "nvidia-parakeet-tdt-0.6b-v3"
-            transcriptionLanguage = nil
-            transcriptionAcceleration = "core_ml"
-        case .whisperCpp:
-            let whisperConfig = settings.transcription.whisperCppConfig
-            transcriptionConfig = FluidAudioSTTConfig(
-                speakersMode: whisperConfig.speakersMode,
-                speakersCount: whisperConfig.speakersCount,
-                threshold: whisperConfig.threshold
-            )
-            transcriptionModel = whisperConfig.model
-            transcriptionLanguage = whisperConfig.language
-            transcriptionAcceleration = whisperConfig.useGPU ? "metal" : "cpu"
-        }
+    ) async throws -> SummaryMetadata {
+        let transcription = try await transcriptionService.metadata(settings: settings)
         return SummaryMetadata(
-            transcription: SummaryTranscriptionMetadata(
-                provider: provider.rawValue,
-                model: transcriptionModel,
-                language: transcriptionLanguage,
-                acceleration: transcriptionAcceleration,
-                diarizationEnabled: settings.transcription.diarizationEnabled,
-                speakersMode: transcriptionConfig.speakersMode,
-                speakersCount: transcriptionConfig.speakersCount,
-                systemSpeakers: settings.transcription.diarizationEnabled
-                    ? {
-                        switch transcriptionConfig.speakersMode {
-                        case "fixed":
-                            return String(transcriptionConfig.speakersCount)
-                        case "max":
-                            return "max:\(transcriptionConfig.speakersCount)"
-                        default:
-                            return "auto"
-                        }
-                    }()
-                    : "disabled",
-                microphoneSpeakers: settings.transcription.diarizationEnabled ? 1 : 0,
-                threshold: transcriptionConfig.threshold
-            ),
+            transcription: transcription,
             audio: SummaryAudioMetadata(
                 system: await audioTrackMetadata(
                     url: session.paths.systemWavURL,
@@ -250,18 +192,7 @@ extension PipelineOrchestrator {
     func effectiveSettings(for session: RecordingSession) async -> AppSettings {
         var settings = await appSettingsStore.load(using: loggingService)
         if let override = session.systemSpeakersOverride ?? storedSystemSpeakersOverride(for: session) {
-            switch settings.transcription.activeProviderConfiguration.provider {
-            case .fluidAudioSTT:
-                var config = settings.transcription.fluidAudioSTTConfig
-                config.speakersMode = "max"
-                config.speakersCount = max(1, min(10, override))
-                settings.transcription.fluidAudioSTTConfig = config
-            case .whisperCpp:
-                var config = settings.transcription.whisperCppConfig
-                config.speakersMode = "max"
-                config.speakersCount = max(1, min(10, override))
-                settings.transcription.whisperCppConfig = config
-            }
+            settings = await transcriptionService.applyingSpeakerLimit(override, to: settings)
         }
         return settings
     }
@@ -271,12 +202,7 @@ extension PipelineOrchestrator {
     }
 
     func storedAutopilotMetadata(for session: RecordingSession) -> AutopilotRecordingMetadata? {
-        let metadataURL = session.paths.folderURL.appendingPathComponent(".anybrief-autopilot.json", isDirectory: false)
-        guard let data = try? Data(contentsOf: metadataURL),
-              let metadata = try? JSONDecoder().decode(AutopilotRecordingMetadata.self, from: data) else {
-            return nil
-        }
-        return metadata
+        MeetingMetadataStore.load(from: session.paths.folderURL)
     }
 
     func audioTrackMetadata(url: URL, segments: [TranscriptSegment]) async -> SummaryAudioTrackMetadata {

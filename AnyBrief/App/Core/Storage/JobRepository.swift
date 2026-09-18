@@ -178,3 +178,106 @@ private struct JobState: Codable {
         self.jobs = jobs
     }
 }
+
+struct CallStatisticsDay: Identifiable, Equatable, Sendable {
+    let date: Date
+    let callCount: Int
+    let duration: TimeInterval
+
+    var id: Date { date }
+}
+
+/// Durable recording-usage history kept independently from jobs and meeting files.
+actor CallStatisticsService {
+    private struct Record: Codable {
+        let jobID: String
+        let startedAt: Date
+        let duration: TimeInterval
+    }
+
+    private struct State: Codable {
+        let version: Int
+        let records: [Record]
+
+        init(records: [Record]) {
+            version = 1
+            self.records = records
+        }
+    }
+
+    private let fileManager: FileManager
+    private let fileURL: URL
+    private let retentionDays: Int
+    private let encoder: JSONEncoder
+    private let decoder: JSONDecoder
+
+    init(
+        fileManager: FileManager = .default,
+        fileURL: URL? = nil,
+        retentionDays: Int = 400
+    ) {
+        self.fileManager = fileManager
+        self.fileURL = fileURL ?? fileManager.homeDirectoryForCurrentUser
+            .appendingPathComponent("anybrief", isDirectory: true)
+            .appendingPathComponent("state", isDirectory: true)
+            .appendingPathComponent("call-statistics.json", isDirectory: false)
+        self.retentionDays = max(365, retentionDays)
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        self.encoder = encoder
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        self.decoder = decoder
+    }
+
+    func recordCall(jobID: String, startedAt: Date, duration: TimeInterval) throws {
+        guard duration.isFinite, duration > 0 else { return }
+        var records = (try? loadRecords()) ?? []
+        records.removeAll { $0.jobID == jobID }
+        records.append(Record(jobID: jobID, startedAt: startedAt, duration: duration))
+        try persist(trim(records, now: Date()))
+    }
+
+    func dailyStatistics(days: Int = 365, now: Date = Date()) -> [CallStatisticsDay] {
+        let requestedDays = max(1, days)
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .current
+        let today = calendar.startOfDay(for: now)
+        guard let firstDay = calendar.date(byAdding: .day, value: -(requestedDays - 1), to: today) else {
+            return []
+        }
+
+        let records = (try? loadRecords()) ?? []
+        let grouped = Dictionary(grouping: records.filter { $0.startedAt >= firstDay && $0.startedAt < now.addingTimeInterval(86_400) }) {
+            calendar.startOfDay(for: $0.startedAt)
+        }
+
+        return (0..<requestedDays).compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: offset, to: firstDay) else { return nil }
+            let dayRecords = grouped[date] ?? []
+            return CallStatisticsDay(
+                date: date,
+                callCount: dayRecords.count,
+                duration: dayRecords.reduce(0) { $0 + $1.duration }
+            )
+        }
+    }
+
+    private func loadRecords() throws -> [Record] {
+        guard fileManager.fileExists(atPath: fileURL.path) else { return [] }
+        return try decoder.decode(State.self, from: Data(contentsOf: fileURL)).records
+    }
+
+    private func persist(_ records: [Record]) throws {
+        try fileManager.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try encoder.encode(State(records: records)).write(to: fileURL, options: .atomic)
+    }
+
+    private func trim(_ records: [Record], now: Date) -> [Record] {
+        let cutoff = now.addingTimeInterval(-TimeInterval(retentionDays) * 86_400)
+        return records.filter { $0.startedAt >= cutoff }
+    }
+}

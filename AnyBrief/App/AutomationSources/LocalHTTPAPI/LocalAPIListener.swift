@@ -155,19 +155,13 @@ private final class HTTPConnectionHandler {
     }
 
     private func receive() {
-        connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [weak self] data, _, isComplete, error in
-            guard let self else {
-                return
-            }
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { [self] data, _, isComplete, error in
             if let data {
                 self.buffer.append(data)
             }
             switch Self.parseRequest(from: self.buffer) {
             case let .request(request):
-                Task { [weak self] in
-                    guard let self else {
-                        return
-                    }
+                Task { [self] in
                     let response = await self.requestHandler(request)
                     self.send(response)
                 }
@@ -187,8 +181,8 @@ private final class HTTPConnectionHandler {
     }
 
     private func send(_ response: HTTPResponse) {
-        connection.send(content: response.encoded(), completion: .contentProcessed { [weak self] _ in
-            self?.connection.cancel()
+        connection.send(content: response.encoded(), completion: .contentProcessed { [self] _ in
+            self.connection.cancel()
         })
     }
 

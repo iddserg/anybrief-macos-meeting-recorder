@@ -200,7 +200,6 @@ final class CalDAVCalendarServiceTests: XCTestCase {
     func testAutopilotNextWakeIntervalUsesUpcomingStartBoundaryWhenSoonerThanBaseInterval() {
         var settings = AppSettings()
         settings.automation.calendarAutopilotSettings.filter = "all"
-        settings.automation.calendarAutopilotSettings.startLeadSec = 30
         settings.automation.calendarAutopilotSettings.pollIntervalSec = 1_800
         let now = Self.iso8601.date(from: "2026-05-25T12:00:00Z")!
         let event = makeEvent(
@@ -216,7 +215,7 @@ final class CalDAVCalendarServiceTests: XCTestCase {
             currentSession: nil
         )
 
-        XCTAssertEqual(interval, 570, accuracy: 0.001)
+        XCTAssertEqual(interval, 600, accuracy: 0.001)
     }
 
     func testAutopilotNextWakeIntervalUsesCurrentCalendarSessionAutoStopWhenSoonerThanBaseInterval() {

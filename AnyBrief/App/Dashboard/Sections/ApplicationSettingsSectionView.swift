@@ -4,22 +4,34 @@ import SwiftUI
 extension DashboardView {
     var appSettingsGroup: some View {
         settingsGroup(title: String(localized: "App")) {
-            VStack(alignment: .leading, spacing: 14) {
-                labeledField(
-                    String(localized: "Language"),
-                    help: String(localized: "System follows the macOS language. Manual choices require saving settings and relaunching the app.")
-                ) {
-                    Picker("", selection: $viewModel.languageSelection) {
-                        Text("🌐 System").tag("system")
-                        Text("🇬🇧 English").tag("en")
-                        Text("🇷🇺 Русский").tag("ru")
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 0) {
+                    settingsControlRow(String(localized: "Appearance")) {
+                        Picker("", selection: $viewModel.appearanceSelection) {
+                            Text("Light appearance").tag(AppAppearance.light)
+                            Text("Dark appearance").tag(AppAppearance.dark)
+                            Text("System appearance").tag(AppAppearance.system)
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .frame(width: 300)
+                        .accessibilityLabel(String(localized: "Appearance"))
+                        .accessibilityIdentifier("settings.appearance")
                     }
-                    .font(ABTypography.field)
-                    .pickerStyle(.menu)
-                    .frame(width: 180)
-                }
 
-                VStack(alignment: .leading, spacing: 8) {
+                    settingsControlRow(
+                        String(localized: "Language"),
+                        help: String(localized: "System follows the macOS language. Manual choices require saving settings and relaunching the app.")
+                    ) {
+                        Picker("", selection: $viewModel.languageSelection) {
+                            Text("🌐 System").tag("system")
+                            Text("🇬🇧 English").tag("en")
+                            Text("🇷🇺 Русский").tag("ru")
+                        }
+                        .font(ABTypography.field)
+                        .pickerStyle(.menu).labelsHidden()
+                        .frame(width: 180)
+                    }
                     compactAppToggleRow(
                         String(localized: "Launch at login"),
                         help: String(localized: "Starts AnyBrief automatically after you sign in to macOS."),
@@ -40,11 +52,7 @@ extension DashboardView {
                         help: String(localized: "Removes the AnyBrief attribution footer from generated summary files."),
                         isOn: $viewModel.disableSummaryFooter
                     )
-                    compactAppToggleRow(
-                        String(localized: "Enable Live transcript (experimental)"),
-                        help: String(localized: "Experimental feature. Captures system audio in rolling chunks and transcribes it live. Disabled by default; text may contain repeats while this is being refined."),
-                        isOn: $viewModel.liveTranscriptEnabled
-                    )
+
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -56,20 +64,16 @@ extension DashboardView {
                         } label: {
                             Label(String(localized: "Load Config"), systemImage: "square.and.arrow.down")
                                 .font(ABTypography.bodyMedium)
-                                .frame(height: 34)
-                                .padding(.horizontal, 12)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(WorkspaceButtonStyle())
 
                         Button {
                             viewModel.exportSettingsConfig()
                         } label: {
                             Label(String(localized: "Export Config"), systemImage: "square.and.arrow.up")
                                 .font(ABTypography.bodyMedium)
-                                .frame(height: 34)
-                                .padding(.horizontal, 12)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(WorkspaceButtonStyle())
                     }
                     Text(String(localized: "Export creates empty password/API key fields. Import stores filled secrets in Keychain."))
                         .font(ABTypography.caption)
@@ -88,87 +92,103 @@ extension DashboardView {
     }
 
     private func compactAppToggleRow(_ title: String, help: String? = nil, isOn: Binding<Bool>) -> some View {
-        Toggle(isOn: isOn) {
+        settingsToggleRow(title: title, detail: help ?? "", isOn: isOn)
+    }
+
+    private func settingsControlRow<Content: View>(
+        _ title: String,
+        help: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        HStack(spacing: 20) {
             HStack(spacing: 5) {
-                Text(title)
-                if let help {
-                    HelpTooltipIcon(text: help)
-                }
+                Text(title).font(ABTypography.bodyMedium)
+                if let help { HelpTooltipIcon(text: help) }
             }
+            Spacer(minLength: 20)
+            content()
+                .padding(.trailing, -8)
         }
-        .toggleStyle(.checkbox)
-        .font(ABTypography.bodyMedium)
         .foregroundStyle(ABDesign.primaryText)
-            .padding(.horizontal, 10)
-            .frame(width: 430, alignment: .leading)
-            .frame(minHeight: 34, alignment: .leading)
-            .background(Color.black.opacity(0.025))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .bottom) { Divider() }
     }
 
     var settingsSaveFooter: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        HStack(spacing: 16) {
             if let saveMessage = viewModel.saveMessage {
                 Text(saveMessage)
-                    .font(ABTypography.bodyMedium)
-                    .foregroundStyle(viewModel.saveMessageIsError ? .red : .green)
+                    .font(ABTypography.caption)
+                    .foregroundStyle(viewModel.saveMessageIsError ? ABDesign.red : ABDesign.green)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Text(viewModel.hasUnsavedSettings ? String(localized: "Unsaved changes") : String(localized: "All changes saved"))
+                    .font(ABTypography.caption)
+                    .foregroundStyle(ABDesign.secondaryText)
             }
-
-            if viewModel.hasUnsavedSettings {
-                HStack {
-                    Spacer()
-                    Button {
-                        viewModel.saveSettings()
-                    } label: {
-                        Label(String(localized: "Save Settings"), systemImage: "checkmark.circle")
-                            .font(ABTypography.bodySemibold)
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 28)
-                            .frame(height: 48)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(!viewModel.canSaveSettings)
-                    .background(
-                        RoundedRectangle(cornerRadius: 9)
-                            .fill(viewModel.canSaveSettings ? ABDesign.accent : Color.black.opacity(0.08))
-                    )
-                    .accessibilityIdentifier("settings.save")
-                }
-            }
+            Spacer(minLength: 0)
+            Button(String(localized: "Save Settings")) { viewModel.saveSettings() }
+                .buttonStyle(WorkspaceButtonStyle(prominent: true))
+                .disabled(!viewModel.hasUnsavedSettings || !viewModel.canSaveSettings)
+                .accessibilityIdentifier("settings.save")
         }
     }
 
-    var automationSettingsGroup: some View {
-        settingsGroup(title: String(localized: "Automation")) {
-            VStack(alignment: .leading, spacing: 14) {
-                ForEach(viewModel.automationSourceModules.indices, id: \.self) { index in
-                    if index > 0 {
-                        Divider()
+    var microphoneSettingsGroup: some View {
+        settingsGroup(title: String(localized: "Microphone")) {
+            labeledField(
+                String(localized: "Microphone"),
+                help: String(localized: "Choose a specific microphone or follow the current macOS system input.")
+            ) {
+                Picker("", selection: $viewModel.microphoneDeviceUID) {
+                    Text(systemMicrophonePickerTitle).tag("")
+                    ForEach(viewModel.availableMicrophoneDevices) { device in
+                        Text(device.name).tag(device.uid)
                     }
-                    viewModel.automationSourceModules[index].makeSettingsView(
-                        context: viewModel.automationSourceSettingsViewContext()
-                    )
+                    if !viewModel.microphoneDeviceUID.isEmpty,
+                       !viewModel.availableMicrophoneDevices.contains(where: { $0.uid == viewModel.microphoneDeviceUID }) {
+                        Text(String(localized: "Unavailable microphone")).tag(viewModel.microphoneDeviceUID)
+                    }
                 }
-
-                if !viewModel.automationSourceModules.isEmpty {
-                    Divider()
-                }
-
-                localHTTPAPISettings
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 320, alignment: .leading)
             }
-            .frame(maxWidth: 680, alignment: .leading)
+
+            settingsToggleRow(
+                title: String(localized: "Microphone voice processing"),
+                detail: String(localized: "If you record without headphones, turn this on to reduce speaker echo in the microphone track. Leave it off when using headphones."),
+                help: String(localized: "Applies Apple's microphone voice-processing mode. It can reduce echo and background noise, but may slightly change voice tone."),
+                isOn: $viewModel.microphoneVoiceProcessingEnabled
+            )
+        }
+        .frame(maxWidth: 680, alignment: .leading)
+    }
+
+    private var systemMicrophonePickerTitle: String {
+        guard let systemDevice = viewModel.availableMicrophoneDevices.first(where: \.isSystemDefault) else {
+            return String(localized: "Follow system input")
+        }
+        return String(localized: "Follow system input") + " (\(systemDevice.name))"
+    }
+
+    @ViewBuilder
+    var windowObserverSettingsGroup: some View {
+        if let module = viewModel.automationSourceRegistry.modules.first(where: { $0.id == .windowObserver }) {
+            module.makeSettingsView(context: viewModel.automationSourceSettingsViewContext())
+                .frame(maxWidth: 680, maxHeight: .infinity, alignment: .topLeading)
         }
     }
 
-    private var localHTTPAPISettings: some View {
-        VStack(alignment: .leading, spacing: 14) {
+    var localHTTPAPISettingsGroup: some View {
+        VStack(alignment: .leading, spacing: 24) {
             localHTTPAPIHeader
 
             VStack(alignment: .leading, spacing: 12) {
                 labeledField(
                     String(localized: "Base URL"),
-                    help: String(localized: "Local endpoint for external tools and automations. It listens on this Mac only unless network access is explicitly configured.")
+                    help: String(localized: "Local endpoint for external tools and automations. It listens on this Mac only.")
                 ) {
                     settingsReadOnlyField(viewModel.localAPIBaseURL) {
                         viewModel.copyToPasteboard(viewModel.localAPIBaseURL)
@@ -179,7 +199,7 @@ extension DashboardView {
                     String(localized: "API Key"),
                     help: String(localized: "Required in X-API-Key for Local HTTP API requests. Regenerate it if a tool should lose access.")
                 ) {
-                    settingsReadOnlyField(viewModel.localApiKey.isEmpty ? "—" : viewModel.localApiKey) {
+                    settingsReadOnlyField(viewModel.localApiKey.isEmpty ? "—" : "••••••••••••••••") {
                         viewModel.copyToPasteboard(viewModel.localApiKey)
                     }
                 }
@@ -211,29 +231,14 @@ extension DashboardView {
             .disabled(!viewModel.localHTTPAPIEnabled)
             .opacity(viewModel.localHTTPAPIEnabled ? 1 : 0.45)
         }
+        .frame(maxWidth: 680, alignment: .leading)
     }
 
     private var localHTTPAPIHeader: some View {
-        HStack(spacing: 10) {
-            Toggle("", isOn: $viewModel.localHTTPAPIEnabled)
-                .toggleStyle(.switch)
-                .labelsHidden()
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(String(localized: "Local HTTP API"))
-                    .font(ABTypography.itemTitle)
-                    .foregroundStyle(ABDesign.primaryText)
-                Text(viewModel.localHTTPAPIEnabled ? String(localized: "Enabled") : String(localized: "Disabled"))
-                    .font(ABTypography.caption)
-                    .foregroundStyle(viewModel.localHTTPAPIEnabled ? ABDesign.green : ABDesign.secondaryText)
-            }
-
-            Spacer()
-        }
-        .padding(.horizontal, 10)
-        .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
-        .background(Color.black.opacity(0.025))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        WorkspaceSettingsSectionHeader(
+            title: String(localized: "Local HTTP API"),
+            isOn: $viewModel.localHTTPAPIEnabled
+        )
     }
 
 }

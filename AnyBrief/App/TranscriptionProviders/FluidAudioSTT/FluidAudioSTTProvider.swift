@@ -74,7 +74,14 @@ final class FluidAudioSTTProvider: TranscriptionProvider {
         process.standardError = logHandle
 
         let timeout = try await timeoutResolver(wavURL)
+        let logStart = try logHandle.seekToEnd()
         let status = try await run(process, timeout: timeout, wavURL: wavURL)
+        try Task.checkCancellation()
+        if status == 1, try Self.reportedNoSpeech(in: logURL, startingAt: logStart) {
+            // Persist an empty result so resume/reprocessing cannot reuse stale speech.
+            try "".write(to: Self.combinedTxtURL(for: wavURL, outputDir: outputDir), atomically: true, encoding: .utf8)
+            return []
+        }
         guard status == 0 else {
             throw TranscriptionError(message: "stt exited with status \(status) for \(wavURL.path).")
         }
@@ -89,6 +96,15 @@ final class FluidAudioSTTProvider: TranscriptionProvider {
             return []
         }
         return try parser.parse(fileURL: combinedTxtURL, sourceTrack: sourceTrack)
+    }
+
+    private static func reportedNoSpeech(in logURL: URL, startingAt offset: UInt64) throws -> Bool {
+        let handle = try FileHandle(forReadingFrom: logURL)
+        defer { try? handle.close() }
+        try handle.seek(toOffset: offset)
+        let text = String(decoding: try handle.readToEnd() ?? Data(), as: UTF8.self)
+        let lastLine = text.split(whereSeparator: \.isNewline).last?.trimmingCharacters(in: .whitespaces)
+        return lastLine == "❌ Error: No speech detected in audio" || lastLine == "Error: No speech detected in audio"
     }
 
     static func outputDir(for paths: MeetingPaths, track: TranscriptionTrack) -> URL {

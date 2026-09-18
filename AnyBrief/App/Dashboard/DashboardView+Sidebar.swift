@@ -3,127 +3,92 @@ import SwiftUI
 extension DashboardView {
     var sidebar: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Image("PrimaryLogo")
-                .resizable()
-                .scaledToFit()
-                .frame(width: 142, height: 46, alignment: .leading)
-                .accessibilityLabel(Text("AnyBrief"))
-                .padding(.horizontal, 16)
-                .padding(.top, 24)
-                .padding(.bottom, 20)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            VStack(spacing: 6) {
-                ForEach(visiblePanes) { pane in
-                    Button {
-                        selectPane(pane)
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: pane.icon)
-                                .font(ABTypography.bodyMedium)
-                                .frame(width: 16)
-                            Text(pane.title)
-                                .font(ABTypography.bodySemibold)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                                .layoutPriority(1)
-                                .padding(.trailing, pane == .notifications && notificationStore.unreadCount > 0 ? 28 : 0)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 8)
-                        .frame(maxWidth: .infinity, minHeight: 34, maxHeight: 34, alignment: .leading)
-                        .contentShape(Rectangle())
-                        .foregroundStyle(selectedPane == pane ? ABDesign.accent : ABDesign.primaryText)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(selectedPane == pane ? ABDesign.selectedSidebarBackground : Color.clear)
-                        )
-                        .overlay(alignment: .trailing) {
-                            if pane == .notifications, notificationStore.unreadCount > 0 {
-                                Text("\(notificationStore.unreadCount)")
-                                    .font(ABTypography.captionSemibold)
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 8)
-                                    .frame(minWidth: 22, minHeight: 22)
-                                    .background(Capsule().fill(ABDesign.red))
-                                    .fixedSize(horizontal: true, vertical: false)
-                                    .padding(.trailing, 8)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("sidebar.pane.\(pane.rawValue)")
-                }
+            HStack(spacing: 8) {
+                Image(nsImage: NSImage(named: "AnyBriefAppIcon") ?? NSImage())
+                    .resizable().scaledToFit().frame(width: 24, height: 24)
+                    .accessibilityHidden(true)
+                Text("AnyBrief")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(ABDesign.primaryText)
             }
-            .padding(.horizontal, 6)
-
-            Spacer()
-
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 6) {
-                    Text(Self.appVersionText)
-                        .font(ABTypography.captionMedium)
-                        .foregroundStyle(ABDesign.secondaryText)
-                        .lineLimit(1)
-
-                    Button {
-                        viewModel.checkForUpdates()
-                    } label: {
-                        Image(systemName: viewModel.isCheckingForUpdates ? "arrow.triangle.2.circlepath" : "arrow.clockwise")
-                            .font(ABTypography.iconSmall)
-                            .frame(width: 18, height: 18)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(ABDesign.secondaryText)
-                    .help(Text(String(localized: "Check for updates")))
-                    .disabled(viewModel.isCheckingForUpdates)
-                }
-
-                if let updateCheckMessage = viewModel.updateCheckMessage {
-                    Text(updateCheckMessage)
-                        .font(ABTypography.captionMedium)
-                        .foregroundStyle(viewModel.updateCheckMessageIsError ? ABDesign.red : ABDesign.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .lineLimit(3)
-                }
-
-                if viewModel.availableUpdate != nil {
-                    Button {
-                        viewModel.openAvailableUpdateDownload()
-                    } label: {
-                        Text("Download update")
-                            .font(ABTypography.captionMedium)
-                            .foregroundStyle(ABDesign.accent)
-                    }
-                    .buttonStyle(.plain)
-                }
-
-                Link(Self.websiteLabel, destination: Self.websiteURL)
-                    .font(ABTypography.captionMedium)
+            .frame(height: 32, alignment: .leading)
+            .padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 16)
+            .accessibilityElement(children: .combine)
+            VStack(spacing: WorkspaceDesign.listRowSpacing) {
+                sidebarItem(.meetings)
+                sidebarItem(.autopilot)
+                sidebarItem(.postProcessing)
+            }.padding(.horizontal, 10)
+            if viewModel.recordingActivity != nil || !viewModel.processingActivities.isEmpty {
+                Divider().padding(.vertical, 16).padding(.horizontal, 18)
+                VStack(spacing: WorkspaceDesign.listRowSpacing) {
+                    if viewModel.recordingActivity != nil { sidebarItem(.status) }
+                    if !viewModel.processingActivities.isEmpty { sidebarItem(.processing) }
+                }.padding(.horizontal, 10)
             }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 18)
+            Spacer(minLength: 24)
+            VStack(spacing: 4) {
+                sidebarItem(.notifications)
+                sidebarItem(.settings)
+            }.padding(.horizontal, 10)
+            HStack(spacing: 8) {
+                Text(Self.appVersionText).fixedSize()
+                Spacer(minLength: 0)
+                Menu {
+                    Button("Readiness") { selectPane(.setup) }
+                        .accessibilityIdentifier("sidebar.setup")
+                    Button("Logs") { selectPane(.logs) }
+                    Button("Permissions") { selectPane(.permissions) }
+                    Button(viewModel.isCheckingForUpdates ? String(localized: "Checking for updates...") : String(localized: "Check for updates")) { viewModel.checkForUpdates() }
+                        .disabled(viewModel.isCheckingForUpdates)
+                    if viewModel.availableUpdate != nil {
+                        Button("Download update") { viewModel.openAvailableUpdateDownload() }
+                    }
+                    Divider()
+                    Link(Self.websiteLabel, destination: Self.websiteURL)
+                        .accessibilityIdentifier("sidebar.website")
+                    Link("Feedback…", destination: Self.websiteURL.appendingPathComponent("feedback.html"))
+                        .accessibilityIdentifier("sidebar.feedback")
+                } label: {
+                    Text("Diagnostics").lineLimit(1)
+                }
+                .menuStyle(.borderlessButton)
+                .controlSize(.mini)
+                .fixedSize()
+                .accessibilityIdentifier("sidebar.diagnostics")
+            }
+            .font(ABTypography.caption)
+            .foregroundStyle(ABDesign.secondaryText)
+            .padding(.horizontal, 18).padding(.top, 14).padding(.bottom, 18)
         }
-        .frame(width: 180)
-        .fixedSize(horizontal: true, vertical: false)
-        .background(ABDesign.chromeBackground)
-        .overlay(alignment: .trailing) {
-            Rectangle()
-                .fill(ABDesign.hairline)
-                .frame(width: 0.5)
-        }
+        .frame(width: WorkspaceDesign.sidebarWidth)
+        .background(WorkspaceDesign.secondarySurface)
+        .overlay(alignment: .trailing) { Rectangle().fill(ABDesign.hairline).frame(width: 1) }
     }
 
-    var visiblePanes: [Pane] {
-        Pane.allCases.filter { pane in
-            switch pane {
-            case .liveTranscript:
-                return viewModel.liveTranscriptEnabled
-            default:
-                return true
+    func sidebarItem(_ pane: Pane) -> some View {
+        Button { selectPane(pane) } label: {
+            HStack(spacing: 8) {
+                Image(systemName: pane.icon).frame(width: 18)
+                Text(pane.title).fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                if pane == .processing, viewModel.processingActivities.count > 1 {
+                    Text("\(viewModel.processingActivities.count)").font(ABTypography.captionMedium)
+                }
+                if pane == .notifications, selectedPane != .notifications, notificationStore.unreadCount > 0 {
+                    Text("\(notificationStore.unreadCount)").font(ABTypography.captionMedium)
+                        .foregroundStyle(ABDesign.accent)
+                }
             }
-        }
+            .font(WorkspaceDesign.navigationFont).padding(.horizontal, 10).padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .foregroundStyle(selectedPane == pane ? ABDesign.accent : ABDesign.primaryText)
+            .background(selectedPane == pane ? ABDesign.selectedSidebarBackground : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: 7)).contentShape(Rectangle())
+        }.buttonStyle(.plain).accessibilityIdentifier("sidebar.pane.\(pane.rawValue)")
     }
+
+    var visiblePanes: [Pane] { [.meetings, .autopilot, .postProcessing, .notifications, .settings, .setup, .logs, .permissions] }
 
     static var appVersionText: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"

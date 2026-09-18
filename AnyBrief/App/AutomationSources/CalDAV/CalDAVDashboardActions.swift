@@ -162,6 +162,57 @@ extension DashboardViewModel {
         }
     }
 
+    func setAutopilotEnabled(_ enabled: Bool, for event: AutopilotScheduleEvent) {
+        Task {
+            do {
+                var settings = await appSettingsStore.load(using: loggingService)
+                settings.automation.calendarAutopilotSettings.setIncluded(
+                    enabled,
+                    eventUID: event.id,
+                    originalUID: event.originalUID,
+                    isRecurring: event.isRecurring
+                )
+                try await appSettingsStore.save(settings)
+                await loggingService.log(
+                    "Autopilot \(enabled ? "enabled" : "disabled") for \(event.isRecurring ? "calendar series" : "calendar event") \(event.title): eventUID=\(event.id), originalUID=\(event.originalUID).",
+                    level: .info,
+                    component: "Autopilot"
+                )
+                await MainActor.run {
+                    todayAutopilotEvents = todayAutopilotEvents.map { item in
+                        let affectsItem = event.isRecurring
+                            ? item.originalUID == event.originalUID
+                            : item.id == event.id
+                        guard affectsItem else { return item }
+                        return AutopilotScheduleEvent(
+                            id: item.id,
+                            title: item.title,
+                            startAt: item.startAt,
+                            endAt: item.endAt,
+                            participantCount: item.participantCount,
+                            hasMeetingURL: item.hasMeetingURL,
+                            meetingURL: item.meetingURL,
+                            originalUID: item.originalUID,
+                            isRecurring: item.isRecurring,
+                            autopilotEnabled: enabled,
+                            calendarEvent: item.calendarEvent
+                        )
+                    }
+                }
+            } catch {
+                await loggingService.log(
+                    "Failed to update Autopilot for calendar event \(event.title): \(error.localizedDescription)",
+                    level: .warn,
+                    component: "Autopilot"
+                )
+                await MainActor.run {
+                    saveMessage = error.localizedDescription
+                    saveMessageIsError = true
+                }
+            }
+        }
+    }
+
     func loadTodayAutopilotEventsIfNeeded() async -> (events: [AutopilotScheduleEvent], error: String?) {
         let now = Date()
         if let lastCalendarScheduleRefreshAt,
@@ -206,7 +257,11 @@ extension DashboardViewModel {
                         endAt: $0.endAt,
                         participantCount: $0.participantCount,
                         hasMeetingURL: $0.hasMeetingURL,
-                        meetingURL: $0.meetingURLs.first.flatMap { URL(string: $0) }
+                        meetingURL: $0.meetingURLs.first.flatMap { URL(string: $0) },
+                        originalUID: $0.originalUID,
+                        isRecurring: $0.recurrenceRule != nil || $0.recurrenceID != nil,
+                        autopilotEnabled: settings.automation.calendarAutopilotSettings.includes($0),
+                        calendarEvent: $0
                     )
                 },
                 nil

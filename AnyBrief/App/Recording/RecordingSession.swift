@@ -2,6 +2,11 @@ import Foundation
 
 /// Recording session runtime state for the active recording.
 struct RecordingSession: Sendable {
+    static let fileImportSource = "file_import"
+    var hasMicrophoneTrack: Bool { source != Self.fileImportSource }
+    var shouldTranscribeMicrophone: Bool {
+        hasMicrophoneTrack && !MeetingMetadataStore.skipsMicrophone(in: paths.folderURL)
+    }
     let jobId: String
     let pid: Int32
     let paths: MeetingPaths

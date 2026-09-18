@@ -3,9 +3,10 @@ import SwiftUI
 
 struct CLISettingsView: View {
     @Binding var configuration: SummaryProviderConfiguration
+    @Environment(\.locale) private var locale
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .top, spacing: 8) {
                 Image(systemName: "exclamationmark.shield")
                     .font(ABTypography.caption)
@@ -19,7 +20,7 @@ struct CLISettingsView: View {
             .background(Color.orange.opacity(0.10))
             .clipShape(RoundedRectangle(cornerRadius: 8))
 
-            HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 16) {
                 SummaryProviderSettingsControls.labeledField(
                     String(localized: "Preset"),
                     help: String(localized: "Preset fills a trusted command template. Use Custom only when you know exactly what command should run.")
@@ -30,9 +31,18 @@ struct CLISettingsView: View {
                         Text("opencode").tag("opencode")
                         Text("Custom").tag("custom")
                     }
-                    .pickerStyle(.menu)
+                    .pickerStyle(.menu).labelsHidden()
                     .frame(width: 160)
                 }
+                Link(destination: CLIDefaults.setupGuideURL(
+                    preset: configuration.cliCommandPreset,
+                    languageCode: locale.language.languageCode?.identifier
+                )) {
+                    Label("CLI setup guide", systemImage: "arrow.up.right.square")
+                        .font(ABTypography.captionMedium)
+                }
+                .foregroundStyle(ABDesign.accent)
+                .accessibilityIdentifier("cli.setupGuide")
                 if configuration.cliCommandPreset == "custom" {
                     SummaryProviderSettingsControls.labeledField(
                         String(localized: "Command"),
@@ -42,6 +52,22 @@ struct CLISettingsView: View {
                         TextField("codex exec", text: $configuration.cliCommandLine)
                             .font(ABTypography.field)
                             .textFieldStyle(.roundedBorder)
+                    }
+                }
+                if configuration.cliCommandPreset == "codex" {
+                    SummaryProviderSettingsControls.labeledField(
+                        String(localized: "Model"),
+                        help: String(localized: "A smaller model usually responds faster, but may lose detail on long or complex meetings.")
+                    ) {
+                        Picker("", selection: $configuration.cliCodexModel) {
+                            Text("Codex default").tag("")
+                            Text("GPT-5.6 Sol — most capable").tag("gpt-5.6-sol")
+                            Text("GPT-5.6 Terra — balanced").tag("gpt-5.6-terra")
+                            Text("GPT-5.6 Luna — fast").tag("gpt-5.6-luna")
+                            Text("GPT-5.4 Mini — fastest").tag("gpt-5.4-mini")
+                        }
+                        .pickerStyle(.menu).labelsHidden()
+                        .frame(width: 260)
                     }
                 }
             }
@@ -76,7 +102,7 @@ struct CLISettingsView: View {
                 isOn: $configuration.cliAPIPreflightEnabled
             )
             .toggleStyle(.checkbox)
-            .font(ABTypography.caption)
+            .font(ABTypography.body)
 
             HelpTooltipIcon(
                 text: String(localized: "Checks that the Codex or Claude API is reachable before starting the CLI. If the domain is blocked or unavailable, AnyBrief immediately tries the next LLM connection.")
@@ -95,7 +121,7 @@ struct CLISettingsView: View {
                     Text("Workspace write").tag("workspace-write")
                     Text("Full access").tag("danger-full-access")
                 }
-                .pickerStyle(.menu)
+                .pickerStyle(.menu).labelsHidden()
                 .frame(maxWidth: 220)
             }
             HStack(spacing: 6) {
@@ -104,7 +130,7 @@ struct CLISettingsView: View {
                     isOn: $configuration.cliCodexIgnoreUserConfig
                 )
                 .toggleStyle(.checkbox)
-                .font(ABTypography.caption)
+                .font(ABTypography.body)
 
                 HelpTooltipIcon(
                     text: String(localized: "Prevents Codex from loading user plugins, MCP servers, and settings for this request. Authentication is still used.")
@@ -151,7 +177,7 @@ struct CLISettingsView: View {
                         let (keyPath, _, label) = entry
                         Toggle(label, isOn: permissions[dynamicMember: keyPath])
                             .toggleStyle(.checkbox)
-                            .font(ABTypography.caption)
+                            .font(ABTypography.body)
                     }
                 }
             }

@@ -273,13 +273,7 @@ final class StorageService: StorageServiceProtocol {
     }
 
     private func customMeetingTitle(in folderURL: URL) -> String? {
-        let titleURL = folderURL.appendingPathComponent(".anybrief-title", isDirectory: false)
-        guard let title = try? String(contentsOf: titleURL, encoding: .utf8)
-            .trimmingCharacters(in: .whitespacesAndNewlines),
-            !title.isEmpty else {
-            return nil
-        }
-        return title
+        MeetingMetadataStore.storedTitle(in: folderURL)
     }
 
     private func sanitizedFolderComponent(_ value: String) -> String {

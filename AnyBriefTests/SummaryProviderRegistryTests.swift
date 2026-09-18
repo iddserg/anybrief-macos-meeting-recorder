@@ -30,6 +30,7 @@ final class SummaryProviderRegistryTests: XCTestCase {
 
         XCTAssertEqual(cli.provider, .commandLine)
         XCTAssertEqual(cli.cliConfig.commandPreset, CLIDefaults.preset)
+        XCTAssertEqual(cli.cliCodexModel, "")
         XCTAssertTrue(cli.cliCodexIgnoreUserConfig)
         XCTAssertTrue(cli.cliAPIPreflightEnabled)
         XCTAssertFalse(cli.payload.isEmpty)
@@ -46,9 +47,21 @@ final class SummaryProviderRegistryTests: XCTestCase {
 
         XCTAssertEqual(configuration.cliCommandPreset, "codex")
         XCTAssertEqual(configuration.cliCodexSandboxMode, "workspace-write")
+        XCTAssertEqual(configuration.cliCodexModel, "")
         XCTAssertEqual(configuration.cliClaudeAllowedTools, "Read")
         XCTAssertTrue(configuration.cliCodexIgnoreUserConfig)
         XCTAssertTrue(configuration.cliAPIPreflightEnabled)
+    }
+
+    func testCLIConfigurationPersistsCodexModel() throws {
+        var configuration = SummaryProviderConfiguration.cli(preset: "codex")
+        configuration.cliCodexModel = "gpt-5.6-luna"
+
+        let data = try JSONEncoder().encode(configuration.cliConfig)
+        let decoded = try JSONDecoder().decode(CLIConfig.self, from: data)
+
+        XCTAssertEqual(decoded.codexModel, "gpt-5.6-luna")
+        XCTAssertEqual(configuration.cliEffectiveModel, "gpt-5.6-luna")
     }
 
     func testCLIConfigurationCanDisableAPIPreflight() throws {

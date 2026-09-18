@@ -3,7 +3,7 @@ import XCTest
 
 @MainActor
 final class LiveTranscriptServiceTests: XCTestCase {
-    func testLiveTranscriptStartsWhenVisibleAndEnabled() async {
+    func testLiveTranscriptRequiresRecordingAndStopsWhenRecordingEnds() async {
         let capture = FakeLiveAudioCapture()
         let runner = FakeLiveSTTRunner(fragments: ["hello"])
         let service = LiveTranscriptService(
@@ -12,14 +12,23 @@ final class LiveTranscriptServiceTests: XCTestCase {
             updateIntervalNanoseconds: 20_000_000
         )
 
+        service.setRecordingActive(true)
         service.setUserEnabled(true)
         await waitBriefly()
         XCTAssertEqual(capture.startCount, 0)
 
+        service.setRecordingActive(false)
         service.setVisible(true)
+        await waitBriefly()
+        XCTAssertEqual(capture.startCount, 0)
+        XCTAssertEqual(service.snapshot.status, .waitingForRecording)
+        service.setRecordingActive(true)
         await waitUntil { capture.startCount == 1 }
-
         XCTAssertEqual(capture.startCount, 1)
+        service.setRecordingActive(false)
+        await waitUntil { capture.stopCount == 1 }
+        XCTAssertEqual(capture.stopCount, 1)
+        XCTAssertEqual(service.snapshot.status, .waitingForRecording)
         service.stop()
     }
 
@@ -32,6 +41,7 @@ final class LiveTranscriptServiceTests: XCTestCase {
             updateIntervalNanoseconds: 20_000_000
         )
 
+        service.setRecordingActive(true)
         service.setUserEnabled(true)
         service.setVisible(true)
         service.setRecordingActive(true)
@@ -56,6 +66,7 @@ final class LiveTranscriptServiceTests: XCTestCase {
             updateIntervalNanoseconds: 10_000_000
         )
 
+        service.setRecordingActive(true)
         service.setUserEnabled(true)
         service.setVisible(true)
         service.setRecordingActive(true)
@@ -77,6 +88,7 @@ final class LiveTranscriptServiceTests: XCTestCase {
             updateIntervalNanoseconds: 10_000_000
         )
 
+        service.setRecordingActive(true)
         service.setUserEnabled(true)
         service.setVisible(true)
 
@@ -99,6 +111,7 @@ final class LiveTranscriptServiceTests: XCTestCase {
             updateIntervalNanoseconds: 10_000_000
         )
 
+        service.setRecordingActive(true)
         service.setUserEnabled(true)
         service.setVisible(true)
 

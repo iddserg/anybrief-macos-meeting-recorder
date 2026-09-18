@@ -3,7 +3,7 @@ import SwiftUI
 
 extension DashboardView {
     func settingsGroup<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: selectedSettingsCategory == .summary ? 10 : 14) {
+        VStack(alignment: .leading, spacing: WorkspaceDesign.formSpacing) {
             content()
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -22,17 +22,13 @@ extension DashboardView {
 
             content()
         }
-        .padding(14)
+        .padding(0)
         .frame(
             maxWidth: .infinity,
             maxHeight: fillsHeight ? .infinity : nil,
             alignment: .topLeading
         )
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(ABDesign.cardBackground)
-                .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 3)
-        )
+
     }
 
     func gridRow(label: String, value: String) -> some View {
@@ -58,18 +54,7 @@ extension DashboardView {
         help: String? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: selectedSettingsCategory == .summary ? 4 : 6) {
-            HStack(spacing: 5) {
-                Text(label)
-                    .font(ABTypography.bodySemibold)
-                    .foregroundStyle(ABDesign.primaryText)
-                if let help {
-                    HelpTooltipIcon(text: help)
-                }
-            }
-            content()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        WorkspaceFormField(title: label, help: help, fillWidth: true, content: content)
     }
 
     func settingsReadOnlyField(_ value: String, onCopy: @escaping () -> Void) -> some View {
@@ -93,76 +78,46 @@ extension DashboardView {
             .disabled(value == "—")
         }
         .padding(.horizontal, 12)
-        .frame(height: 38)
-        .background(Color.white.opacity(0.86))
+        .frame(height: WorkspaceDesign.controlHeight)
+        .background(ABDesign.controlBackground)
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.black.opacity(0.16), lineWidth: 1)
+                .stroke(ABDesign.border, lineWidth: 1)
         )
     }
 
     func settingsToggleRow(_ title: String, help: String? = nil, isOn: Binding<Bool>) -> some View {
-        Toggle(isOn: isOn) {
-            HStack(spacing: 5) {
-                Text(title)
-                if let help {
-                    HelpTooltipIcon(text: help)
-                }
-            }
-        }
-        .toggleStyle(.checkbox)
-        .font(ABTypography.bodyMedium)
-        .foregroundStyle(ABDesign.primaryText)
-        .padding(.horizontal, 12)
-        .frame(maxWidth: .infinity, minHeight: 38, alignment: .leading)
-        .background(Color.black.opacity(0.025))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        settingsToggleRow(title: title, detail: "", help: help, isOn: isOn)
     }
 
     func settingsToggleRow(title: String, detail: String, help: String? = nil, isOn: Binding<Bool>) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Toggle(isOn: isOn) {
+        HStack(alignment: .top, spacing: 20) {
+            VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 5) {
-                    Text(title)
-                    if let help {
-                        HelpTooltipIcon(text: help)
-                    }
+                    Text(title).font(ABTypography.bodyMedium)
+                    if let help { HelpTooltipIcon(text: help) }
+                }
+                if !detail.isEmpty {
+                    Text(detail)
+                        .font(ABTypography.caption)
+                        .foregroundStyle(ABDesign.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            .toggleStyle(.checkbox)
-            .font(ABTypography.bodyMedium)
-            .foregroundStyle(ABDesign.primaryText)
-
-            Text(detail)
-                .font(ABTypography.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Toggle(title, isOn: isOn)
+                .labelsHidden().toggleStyle(.switch).controlSize(.small)
+                .accessibilityLabel(title)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 10)
+        .foregroundStyle(ABDesign.primaryText)
+        .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.black.opacity(0.025))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(alignment: .bottom) { Divider() }
     }
 
     func settingsActionButton(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(ABTypography.bodyMedium)
-                .padding(.horizontal, 16)
-                .frame(height: 38)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(ABDesign.controlBackground)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(ABDesign.hairline, lineWidth: 1)
-                )
-        )
+        Button(title, action: action).buttonStyle(WorkspaceButtonStyle())
     }
 
     func logBox(
@@ -207,7 +162,7 @@ extension DashboardView {
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.black.opacity(0.16), lineWidth: 1)
+                .stroke(ABDesign.border, lineWidth: 1)
         )
     }
 

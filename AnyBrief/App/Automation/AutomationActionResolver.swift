@@ -27,13 +27,12 @@ actor AutomationActionResolver {
 
     private func resolveCalendarEvents(_ events: [CalendarEvent], settings: AppSettings) async -> [AutomationAction] {
         let now = Date()
-        let lead = TimeInterval(settings.automation.calendarAutopilotSettings.startLeadSec)
-        let grace = TimeInterval(settings.automation.calendarAutopilotSettings.stopGraceSec)
         pruneCalendarStartAttempts(now: now)
         let eligibleEvents = events
             .filter { event in
-                event.startAt <= now.addingTimeInterval(lead) &&
-                event.endAt.addingTimeInterval(grace) > now &&
+                event.startAt <= now &&
+                event.endAt > now &&
+                settings.automation.calendarAutopilotSettings.includes(event) &&
                 Self.matchesFilter(event, settings: settings)
             }
             .sorted { lhs, rhs in
@@ -42,6 +41,9 @@ actor AutomationActionResolver {
             }
 
         if let session = await currentSessionProvider() {
+            if session.source == "calendar", session.autoStopDisabled {
+                return []
+            }
             if session.source == "calendar",
                eligibleEvents.contains(where: { $0.uid == session.calendarEventUID }) {
                 if let autoStopAt = session.autoStopAt,
@@ -90,7 +92,7 @@ actor AutomationActionResolver {
             return actions
         }
 
-        markCalendarStartAttempt(for: selectedEvent, grace: grace)
+        markCalendarStartAttempt(for: selectedEvent)
         actions.append(
             .startCalendarRecording(
                 event: selectedEvent,
@@ -105,8 +107,8 @@ actor AutomationActionResolver {
         attemptedCalendarEventStartExpirations[event.uid] != nil
     }
 
-    private func markCalendarStartAttempt(for event: CalendarEvent, grace: TimeInterval) {
-        attemptedCalendarEventStartExpirations[event.uid] = event.endAt.addingTimeInterval(grace)
+    private func markCalendarStartAttempt(for event: CalendarEvent) {
+        attemptedCalendarEventStartExpirations[event.uid] = event.endAt
     }
 
     private func pruneCalendarStartAttempts(now: Date) {
@@ -157,16 +159,14 @@ actor AutomationActionResolver {
     ) -> TimeInterval {
         let baseInterval = basePollInterval(for: settings)
         var candidates = [baseInterval]
-        let lead = TimeInterval(settings.automation.calendarAutopilotSettings.startLeadSec)
-        let grace = TimeInterval(settings.automation.calendarAutopilotSettings.stopGraceSec)
 
-        for event in events where matchesFilter(event, settings: settings) {
-            let startBoundary = event.startAt.addingTimeInterval(-lead)
+        for event in events where settings.automation.calendarAutopilotSettings.includes(event) && matchesFilter(event, settings: settings) {
+            let startBoundary = event.startAt
             if startBoundary > now {
                 candidates.append(startBoundary.timeIntervalSince(now))
             }
 
-            let endBoundary = event.endAt.addingTimeInterval(grace)
+            let endBoundary = event.endAt
             if endBoundary > now {
                 candidates.append(endBoundary.timeIntervalSince(now))
             }
@@ -215,13 +215,9 @@ actor AutomationActionResolver {
     }
 
     private static func systemSpeakers(for event: CalendarEvent, settings: AppSettings) -> Int? {
-        let speakersMode: String
-        switch settings.transcription.activeProviderConfiguration.provider {
-        case .fluidAudioSTT:
-            speakersMode = settings.transcription.fluidAudioSTTConfig.speakersMode
-        case .whisperCpp:
-            speakersMode = settings.transcription.whisperCppConfig.speakersMode
-        }
+        let configuration = settings.transcription.activeProviderConfiguration
+        let speakersMode = try? TranscriptionProviderRegistry.default.module(for: configuration.provider)
+            .metadata(configuration: configuration, diarizationEnabled: settings.transcription.diarizationEnabled).speakersMode
         switch speakersMode {
         case "calendar":
             return max(1, min(10, event.participantCount - 1))

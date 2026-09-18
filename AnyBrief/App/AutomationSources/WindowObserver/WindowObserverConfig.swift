@@ -74,7 +74,16 @@ struct WindowObserverRule: Codable, Equatable, Identifiable {
     }
 
     static let defaultRules: [WindowObserverRule] = [
-        WindowObserverRule(name: "Zoom", applicationPattern: "zoom"),
+        WindowObserverRule(id: "default-zoom", name: "Zoom", applicationPattern: "zoom"),
+        WindowObserverRule(id: "default-teams", name: "Microsoft Teams", applicationPattern: "teams"),
+        WindowObserverRule(id: "default-google-meet", name: "Google Meet", applicationPattern: "", titlePattern: "Meet -"),
+        WindowObserverRule(id: "default-webex", name: "Webex", applicationPattern: "webex"),
+        WindowObserverRule(id: "default-facetime", name: "FaceTime", applicationPattern: "facetime"),
+        WindowObserverRule(id: "default-telemost-ru", name: "Яндекс Телемост", applicationPattern: "телемост"),
+        WindowObserverRule(id: "default-telemost-en", name: "Yandex Telemost", applicationPattern: "telemost"),
+        WindowObserverRule(id: "default-telemost-web", name: "Яндекс Телемост · браузер", applicationPattern: "", titlePattern: "Телемост"),
+        WindowObserverRule(id: "default-tolk", name: "Контур.Толк", applicationPattern: "толк"),
+        WindowObserverRule(id: "default-tolk-web", name: "Контур.Толк · браузер", applicationPattern: "", titlePattern: "Контур.Толк"),
     ]
 }
 

@@ -58,6 +58,12 @@ struct AppSettings: Codable {
     }
 }
 
+enum AppAppearance: String, Codable, CaseIterable {
+    case light
+    case dark
+    case system
+}
+
 struct ApplicationSettings: Codable {
     var storageRoot = "~/anybrief"
     var launchAtLogin = false
@@ -77,6 +83,7 @@ struct ApplicationSettings: Codable {
     ]
     var presenceCheckEnabled = true
     var locale = "system"
+    var appearance: AppAppearance = .system
     var jobsHistoryLimit = 500
 
     init() {}
@@ -98,6 +105,8 @@ struct ApplicationSettings: Codable {
         presenceCheckEnabled = try container.decodeIfPresent(Bool.self, forKey: .presenceCheckEnabled)
             ?? defaults.presenceCheckEnabled
         locale = try container.decodeIfPresent(String.self, forKey: .locale) ?? defaults.locale
+        let appearanceValue = try container.decodeIfPresent(String.self, forKey: .appearance)
+        appearance = appearanceValue.flatMap(AppAppearance.init(rawValue:)) ?? defaults.appearance
         jobsHistoryLimit = try container.decodeIfPresent(Int.self, forKey: .jobsHistoryLimit) ?? defaults.jobsHistoryLimit
     }
 }
@@ -105,6 +114,7 @@ struct ApplicationSettings: Codable {
 struct RecordingSettings: Codable {
     var microphoneVoiceProcessingEnabled = false
     var microphoneDeviceUID: String?
+    var systemAudioApplicationBundleIdentifier: String?
 
     init() {}
 
@@ -120,6 +130,13 @@ struct RecordingSettings: Codable {
         )?.trimmingCharacters(in: .whitespacesAndNewlines)
         microphoneDeviceUID = decodedMicrophoneDeviceUID?.isEmpty == false
             ? decodedMicrophoneDeviceUID
+            : nil
+        let decodedSystemAudioApplicationBundleIdentifier = try container.decodeIfPresent(
+            String.self,
+            forKey: .systemAudioApplicationBundleIdentifier
+        )?.trimmingCharacters(in: .whitespacesAndNewlines)
+        systemAudioApplicationBundleIdentifier = decodedSystemAudioApplicationBundleIdentifier?.isEmpty == false
+            ? decodedSystemAudioApplicationBundleIdentifier
             : nil
     }
 }

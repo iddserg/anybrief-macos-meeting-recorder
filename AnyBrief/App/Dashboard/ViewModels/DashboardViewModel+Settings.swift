@@ -3,6 +3,41 @@ import AppKit
 import UniformTypeIdentifiers
 
 extension DashboardViewModel {
+    func selectSystemAudioApplication(_ bundleIdentifier: String) {
+        let normalizedBundleIdentifier = bundleIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard systemAudioApplicationBundleIdentifier != normalizedBundleIdentifier else {
+            return
+        }
+        let previousBundleIdentifier = systemAudioApplicationBundleIdentifier
+        systemAudioApplicationBundleIdentifier = normalizedBundleIdentifier
+
+        Task {
+            do {
+                let selection = normalizedBundleIdentifier.isEmpty ? nil : normalizedBundleIdentifier
+                try await applySystemAudioApplicationAction(selection)
+                var settings = await appSettingsStore.load(using: loggingService)
+                settings.recording.systemAudioApplicationBundleIdentifier = selection
+                try await appSettingsStore.save(settings)
+                await loggingService.log(
+                    "System audio source updated: \(selection ?? "all system audio").",
+                    level: .info,
+                    component: "Dashboard"
+                )
+            } catch {
+                await loggingService.log(
+                    "Failed to update system audio source to \(normalizedBundleIdentifier.isEmpty ? "all system audio" : normalizedBundleIdentifier): \(error.localizedDescription)",
+                    level: .warn,
+                    component: "Dashboard"
+                )
+                await MainActor.run {
+                    systemAudioApplicationBundleIdentifier = previousBundleIdentifier
+                    saveMessage = error.localizedDescription
+                    saveMessageIsError = true
+                }
+            }
+        }
+    }
+
     func selectMicrophoneDevice(_ uid: String) {
         let normalizedUID = uid.trimmingCharacters(in: .whitespacesAndNewlines)
         guard microphoneDeviceUID != normalizedUID else {
@@ -60,6 +95,7 @@ extension DashboardViewModel {
                 let previousLaunchAtLogin = settings.application.launchAtLogin
                 settings.application.launchAtLogin = launchAtLogin
                 settings.application.hideDockIcon = hideDockIcon
+                settings.application.appearance = appearanceSelection
                 let shouldRequestNotifications = !settings.application.showNotifications && showNotifications
                 settings.application.showNotifications = showNotifications
                 settings.application.disableSummaryFooter = disableSummaryFooter
@@ -67,21 +103,7 @@ extension DashboardViewModel {
                 settings.application.postProcessingTabEnabled = postProcessingTabEnabled
                 settings.transcription.diarizationEnabled = transcriptionDiarizationEnabled
                 settings.transcription.skipMicrophoneDiarization = skipMicrophoneDiarization
-                settings.transcription.fluidAudioSTTConfig = FluidAudioSTTConfig(
-                    speakersMode: fluidAudioSTTSpeakersMode,
-                    speakersCount: fluidAudioSTTSpeakersCount,
-                    threshold: fluidAudioSTTThreshold,
-                    customVocabulary: fluidAudioSTTCustomVocabulary
-                )
-                settings.transcription.whisperCppConfig = WhisperCppConfig(
-                    model: whisperCppModel,
-                    language: whisperCppLanguage,
-                    useGPU: whisperCppUseGPU,
-                    speakersMode: whisperCppSpeakersMode,
-                    speakersCount: whisperCppSpeakersCount,
-                    threshold: whisperCppThreshold,
-                    customVocabulary: whisperCppCustomVocabulary
-                )
+                settings.transcription.providers = transcriptionProviderEntries.map(transcriptionProviderRegistry.normalize)
                 settings.transcription.selectProvider(
                     TranscriptionProviderID(rawValue: transcriptionProviderSelection) ?? .fluidAudioSTT
                 )
@@ -106,8 +128,6 @@ extension DashboardViewModel {
                 }
                 settings.automation.calendarAutopilotSettings.enabled = calendarAutopilotEnabled
                 settings.automation.calendarAutopilotSettings.filter = calendarAutopilotFilter
-                settings.automation.calendarAutopilotSettings.startLeadSec = calendarAutopilotStartLeadSec
-                settings.automation.calendarAutopilotSettings.stopGraceSec = calendarAutopilotStopGraceSec
                 settings.automation.calendarAutopilotSettings.preEndNotificationSec = calendarAutopilotPreEndNotificationSec
                 settings.automation.calendarAutopilotSettings.muteMicrophone = calendarAutopilotMuteMicrophone
                 settings.automation.calendarAutopilotSettings.participantCountMode = calendarAutopilotParticipantCountMode
@@ -220,15 +240,17 @@ extension DashboardViewModel {
     }
 
     func currentSettingsSignature() -> String {
-        let encodedProviders = (try? JSONEncoder().encode(normalizedSummaryProviderConfigurations()))
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let encodedProviders = (try? encoder.encode(normalizedSummaryProviderConfigurations()))
             .flatMap { String(data: $0, encoding: .utf8) } ?? ""
-        let encodedProviderKeys = (try? JSONEncoder().encode(summaryProviderAPIKeys))
+        let encodedProviderKeys = (try? encoder.encode(summaryProviderAPIKeys))
             .flatMap { String(data: $0, encoding: .utf8) } ?? ""
-        let encodedPromptItems = (try? JSONEncoder().encode(promptItems))
+        let encodedPromptItems = (try? encoder.encode(promptItems))
             .flatMap { String(data: $0, encoding: .utf8) } ?? ""
-        let encodedPostProcessingRules = (try? JSONEncoder().encode(postProcessingRules))
+        let encodedPostProcessingRules = (try? encoder.encode(postProcessingRules))
             .flatMap { String(data: $0, encoding: .utf8) } ?? ""
-        let encodedWindowObserverSettings = (try? JSONEncoder().encode(
+        let encodedWindowObserverSettings = (try? encoder.encode(
             automationSourceSettings.automation.windowObserverSettings.normalized()
         )).flatMap { String(data: $0, encoding: .utf8) } ?? ""
         let trimmedCaldavPassword = caldavPassword.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -263,8 +285,6 @@ extension DashboardViewModel {
             trimmedCaldavPassword.hasPrefix("••") ? "stored-password" : trimmedCaldavPassword,
             String(calendarAutopilotEnabled),
             calendarAutopilotFilter,
-            String(calendarAutopilotStartLeadSec),
-            String(calendarAutopilotStopGraceSec),
             String(calendarAutopilotPreEndNotificationSec),
             String(calendarAutopilotMuteMicrophone),
             calendarAutopilotParticipantCountMode,
@@ -273,6 +293,7 @@ extension DashboardViewModel {
         ]
         let applicationParts: [String] = [
             languageSelection,
+            appearanceSelection.rawValue,
             String(launchAtLogin),
             String(hideDockIcon),
             String(showNotifications),
@@ -282,17 +303,7 @@ extension DashboardViewModel {
             transcriptionProviderSelection,
             String(transcriptionDiarizationEnabled),
             String(skipMicrophoneDiarization),
-            fluidAudioSTTCustomVocabulary.trimmingCharacters(in: .whitespacesAndNewlines),
-            whisperCppCustomVocabulary.trimmingCharacters(in: .whitespacesAndNewlines),
-            String(fluidAudioSTTThreshold),
-            fluidAudioSTTSpeakersMode,
-            String(fluidAudioSTTSpeakersCount),
-            whisperCppModel,
-            whisperCppLanguage,
-            String(whisperCppUseGPU),
-            String(whisperCppThreshold),
-            whisperCppSpeakersMode,
-            String(whisperCppSpeakersCount),
+            (try? String(data: encoder.encode(transcriptionProviderEntries), encoding: .utf8)) ?? "",
             String(microphoneVoiceProcessingEnabled),
             microphoneDeviceUID,
         ]
@@ -473,14 +484,13 @@ extension DashboardViewModel {
         caldavPasswordMask: String,
         calendarAutopilotEnabled: Bool,
         calendarAutopilotFilter: String,
-        calendarAutopilotStartLeadSec: Int,
-        calendarAutopilotStopGraceSec: Int,
         calendarAutopilotPreEndNotificationSec: Int,
         calendarAutopilotMuteMicrophone: Bool,
         calendarAutopilotParticipantCountMode: String,
         calendarAutopilotParticipantCount: Int,
         calendarAutopilotPollIntervalSec: Int,
         languageSelection: String,
+        appearanceSelection: AppAppearance,
         launchAtLogin: Bool,
         hideDockIcon: Bool,
         showNotifications: Bool,
@@ -490,19 +500,10 @@ extension DashboardViewModel {
         transcriptionProviderSelection: String,
         transcriptionDiarizationEnabled: Bool,
         skipMicrophoneDiarization: Bool,
-        fluidAudioSTTCustomVocabulary: String,
-        whisperCppCustomVocabulary: String,
-        fluidAudioSTTThreshold: Double,
-        fluidAudioSTTSpeakersMode: String,
-        fluidAudioSTTSpeakersCount: Int,
-        whisperCppModel: String,
-        whisperCppLanguage: String,
-        whisperCppUseGPU: Bool,
-        whisperCppThreshold: Double,
-        whisperCppSpeakersMode: String,
-        whisperCppSpeakersCount: Int,
+        transcriptionProviderEntries: [TranscriptionProviderConfiguration],
         microphoneVoiceProcessingEnabled: Bool,
-        microphoneDeviceUID: String
+        microphoneDeviceUID: String,
+        systemAudioApplicationBundleIdentifier: String
     ) {
         let settings = await appSettingsStore.load(using: loggingService)
         let localApiKey = settings.automation.localHTTPAPISettings.apiKeyKeychainRef.flatMap { keychainStore.load(key: $0) } ?? ""
@@ -519,8 +520,6 @@ extension DashboardViewModel {
         )
         let caldavPasswordMask = settings.automation.calDAVSettings.passwordKeychainRef.flatMap { keychainStore.load(key: $0) } == nil ? "" : "••••••••"
         let lang = settings.application.locale
-        let transcriptionConfig = settings.transcription.fluidAudioSTTConfig
-        let whisperConfig = settings.transcription.whisperCppConfig
         let promptsSnapshot = PromptsSnapshot(
             items: settings.prompts.items,
             summaryPromptID: settings.prompts.summary.promptID,
@@ -552,14 +551,13 @@ extension DashboardViewModel {
             caldavPasswordMask,
             settings.automation.calendarAutopilotSettings.enabled,
             settings.automation.calendarAutopilotSettings.filter,
-            settings.automation.calendarAutopilotSettings.startLeadSec,
-            settings.automation.calendarAutopilotSettings.stopGraceSec,
             settings.automation.calendarAutopilotSettings.preEndNotificationSec,
             settings.automation.calendarAutopilotSettings.muteMicrophone,
             settings.automation.calendarAutopilotSettings.participantCountMode,
             settings.automation.calendarAutopilotSettings.participantCount,
             settings.automation.calendarAutopilotSettings.pollIntervalSec,
             lang,
+            settings.application.appearance,
             settings.application.launchAtLogin,
             settings.application.hideDockIcon,
             settings.application.showNotifications,
@@ -569,19 +567,10 @@ extension DashboardViewModel {
             settings.transcription.activeProviderConfiguration.provider.rawValue,
             settings.transcription.diarizationEnabled,
             settings.transcription.skipMicrophoneDiarization,
-            transcriptionConfig.customVocabulary,
-            whisperConfig.customVocabulary,
-            transcriptionConfig.threshold,
-            transcriptionConfig.speakersMode,
-            transcriptionConfig.speakersCount,
-            whisperConfig.model,
-            whisperConfig.language,
-            whisperConfig.useGPU,
-            whisperConfig.threshold,
-            whisperConfig.speakersMode,
-            whisperConfig.speakersCount,
+            settings.transcription.providers,
             settings.recording.microphoneVoiceProcessingEnabled,
-            settings.recording.microphoneDeviceUID ?? ""
+            settings.recording.microphoneDeviceUID ?? "",
+            settings.recording.systemAudioApplicationBundleIdentifier ?? ""
         )
     }
 

@@ -128,6 +128,7 @@ protocol AutomationSource: AnyObject {
 }
 
 protocol AutomationSourceModule {
+    var settingsPayloadCodec: ModuleSettingsPayloadCodec { get }
     var id: AutomationSourceID { get }
     var title: String { get }
     var systemImage: String { get }
@@ -135,12 +136,19 @@ protocol AutomationSourceModule {
 
     func defaultConfiguration() -> AutomationSourceConfiguration
     func normalize(_ configuration: AutomationSourceConfiguration) -> AutomationSourceConfiguration
+    func importRuleConfiguration(_ configuration: AutomationRuleConfiguration) throws -> AutomationRuleConfiguration
     func makeSource(context: AutomationRuntimeContext) -> any AutomationSource
     func makeDiagnostics(context: AutomationDiagnosticsContext) -> any AutomationDiagnostics
     @MainActor func makeSettingsView(context: AutomationSourceSettingsViewContext) -> AnyView
 }
 
 extension AutomationSourceModule {
+    func importRuleConfiguration(_ configuration: AutomationRuleConfiguration) throws -> AutomationRuleConfiguration {
+        throw ModuleSettingsPayloadError.unsupportedRule
+    }
+
+    var settingsPayloadCodec: ModuleSettingsPayloadCodec { ModuleSettingsPayloadCodec() }
+
     var hasSettingsView: Bool {
         false
     }

@@ -13,6 +13,26 @@ actor TranscriptionService {
         providerContext = TranscriptionRuntimeContext(fileManager: fileManager)
     }
 
+    func metadata(settings: AppSettings) throws -> TranscriptionMetadata {
+        let configuration = settings.transcription.activeProviderConfiguration
+        return try providerRegistry.module(for: configuration.provider).metadata(
+            configuration: configuration, diarizationEnabled: settings.transcription.diarizationEnabled
+        )
+    }
+
+    func applyingSpeakerLimit(_ count: Int, to settings: AppSettings) -> AppSettings {
+        var settings = settings
+        let configuration = settings.transcription.activeProviderConfiguration
+        guard let module = try? providerRegistry.module(for: configuration.provider) else { return settings }
+        let overridden = module.applyingSpeakerLimit(count, to: configuration)
+        if let index = settings.transcription.providers.firstIndex(where: { $0.id == configuration.id }) {
+            settings.transcription.providers[index] = overridden
+        } else {
+            settings.transcription.providers.append(overridden)
+        }
+        return settings
+    }
+
     func transcribe(
         input: TranscriptionInput,
         configuration: TranscriptionProviderConfiguration? = nil

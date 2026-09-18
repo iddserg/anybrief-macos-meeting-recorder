@@ -2,6 +2,9 @@ import Foundation
 import SwiftUI
 
 struct CLIModule: SummaryProviderModule {
+    var settingsPayloadCodec: ModuleSettingsPayloadCodec {
+        ModuleSettingsPayloadCodec(CLIConfig.self, includesEnabled: false, secrets: [])
+    }
     let id: SummaryProvider = .commandLine
     let title = "CLI"
     let systemImage = "terminal"

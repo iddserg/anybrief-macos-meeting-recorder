@@ -12,6 +12,7 @@ final class LiveTranscriptService {
     private let logger: (@Sendable (String, LoggingService.LogLevel) async -> Void)?
 
     private var isVisible = false
+    private var isRecordingActive = false
     private var isUserEnabled = false
     private var runTask: Task<Void, Never>?
     private var activeRunID: UUID?
@@ -84,9 +85,8 @@ final class LiveTranscriptService {
     }
 
     func setRecordingActive(_ active: Bool) {
-        // Live transcript captures system audio independently from the regular
-        // recording pipeline. Keep this hook for existing dashboard refresh
-        // wiring, but do not let recording state gate live capture.
+        isRecordingActive = active
+        reconcile()
     }
 
     func stop() {
@@ -99,7 +99,7 @@ final class LiveTranscriptService {
     }
 
     private var shouldRun: Bool {
-        isVisible && isUserEnabled
+        isVisible && isUserEnabled && isRecordingActive
     }
 
     private func reconcile() {
@@ -291,9 +291,8 @@ final class LiveTranscriptService {
         guard isUserEnabled else {
             return .idle
         }
-        guard isVisible else {
-            return .idle
-        }
+        guard isVisible else { return .idle }
+        guard isRecordingActive else { return .waitingForRecording }
         return .running
     }
 

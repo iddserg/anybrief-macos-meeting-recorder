@@ -28,6 +28,8 @@ struct InAppNotificationItem: Identifiable, Equatable {
 }
 
 final class InAppNotificationStore: ObservableObject {
+    static let maximumRetainedNotifications = 5
+
     @Published private(set) var notifications: [InAppNotificationItem] = []
 
     var unreadNotifications: [InAppNotificationItem] {
@@ -42,6 +44,9 @@ final class InAppNotificationStore: ObservableObject {
     func add(category: String, title: String, body: String) -> InAppNotificationItem {
         let item = InAppNotificationItem(category: category, title: title, body: body)
         notifications.insert(item, at: 0)
+        if notifications.count > Self.maximumRetainedNotifications {
+            notifications.removeLast(notifications.count - Self.maximumRetainedNotifications)
+        }
         return item
     }
 
@@ -88,7 +93,4 @@ final class InAppNotificationStore: ObservableObject {
         }
     }
 
-    func removeReadNotifications() {
-        notifications.removeAll { $0.isRead }
-    }
 }

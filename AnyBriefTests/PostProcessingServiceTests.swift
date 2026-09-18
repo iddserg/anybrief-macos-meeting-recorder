@@ -16,6 +16,28 @@ final class PostProcessingServiceTests: XCTestCase {
         }
     }
 
+    func testOverwriteCannotDeleteSourceThroughSamePathOrSymlink() async throws {
+        let meeting = sandboxURL.appendingPathComponent("meeting", isDirectory: true)
+        try FileManager.default.createDirectory(at: meeting, withIntermediateDirectories: true)
+        let source = meeting.appendingPathComponent("summary.md")
+        let original = "# Original summary\n"
+        try original.write(to: source, atomically: true, encoding: .utf8)
+        let alias = sandboxURL.appendingPathComponent("alias", isDirectory: true)
+        try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: meeting)
+        for destination in [meeting, alias] {
+            let rule = PostProcessingRuleConfiguration(
+                title: "Self export", calendarTitlePattern: "meeting",
+                destinationFolderPath: destination.path, filenameTemplate: "summary.md",
+                conflictBehavior: .overwrite
+            )
+            let result = await PostProcessingService().export(
+                from: meeting, settings: PostProcessingSettings(enabled: true, rules: [rule]), ruleID: rule.id
+            )
+            XCTAssertEqual(result.status, .failed)
+            XCTAssertEqual(try String(contentsOf: source, encoding: .utf8), original)
+        }
+    }
+
     func testMatchesContainsTitleIgnoringColonAndCase() {
         let rule = PostProcessingRuleConfiguration(
             title: "WEB Media",
@@ -52,7 +74,7 @@ final class PostProcessingServiceTests: XCTestCase {
         let settings = PostProcessingSettings(enabled: true, rules: [rule])
         let service = PostProcessingService()
 
-        let result = await service.exportSummaryIfNeeded(
+        let result = await service.exportIfNeeded(
             from: meetingURL,
             settings: settings,
             calendarEvent: calendarEvent(title: "[WEB, Media] Admon: Anti-fraud products")
@@ -61,7 +83,7 @@ final class PostProcessingServiceTests: XCTestCase {
         XCTAssertEqual(result.status, .exported)
         let files = try FileManager.default.contentsOfDirectory(atPath: destinationURL.path)
         XCTAssertEqual(files.count, 1)
-        XCTAssertEqual(files.first, "2026-06-22 [WEB, Media] Admon - Anti-fraud products — Обсудить антифрод витрину.md")
+        XCTAssertEqual(files.first, "2026-06-22 [WEB, Media] Admon - Anti-fraud products — summary — Обсудить антифрод витрину.md")
         let copiedSummary = try String(contentsOf: destinationURL.appendingPathComponent(files[0]), encoding: .utf8)
         XCTAssertTrue(copiedSummary.contains("Обсудить антифрод витрину"))
         XCTAssertFalse(FileManager.default.fileExists(atPath: destinationURL.appendingPathComponent("transcript.txt").path))
@@ -74,7 +96,7 @@ final class PostProcessingServiceTests: XCTestCase {
         try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
         try "Summary body".write(to: meetingURL.appendingPathComponent("summary.md"), atomically: true, encoding: .utf8)
 
-        let filename = "2026-06-22 Продуктовый комитет — Summary body.md"
+        let filename = "2026-06-22 Продуктовый комитет — summary — Summary body.md"
         try "existing".write(to: destinationURL.appendingPathComponent(filename), atomically: true, encoding: .utf8)
         let rule = PostProcessingRuleConfiguration(
             title: "Продуктовый комитет",
@@ -82,7 +104,7 @@ final class PostProcessingServiceTests: XCTestCase {
             destinationFolderPath: destinationURL.path
         )
 
-        let result = await PostProcessingService().exportSummaryIfNeeded(
+        let result = await PostProcessingService().exportIfNeeded(
             from: meetingURL,
             settings: PostProcessingSettings(enabled: true, rules: [rule]),
             calendarEvent: calendarEvent(title: "Продуктовый комитет")
@@ -115,7 +137,7 @@ final class PostProcessingServiceTests: XCTestCase {
             destinationFolderPath: destinationURL.path
         )
 
-        let result = await PostProcessingService().exportSummaryIfNeeded(
+        let result = await PostProcessingService().exportIfNeeded(
             from: meetingURL,
             settings: PostProcessingSettings(enabled: true, rules: [rule]),
             calendarEvent: calendarEvent(title: "Продуктовый комитет")
@@ -123,6 +145,167 @@ final class PostProcessingServiceTests: XCTestCase {
 
         XCTAssertEqual(result.status, .skipped)
         XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: destinationURL.path).isEmpty)
+    }
+
+    func testExportCopiesSummaryAndTranscriptWithTypeToken() async throws {
+        let meetingURL = sandboxURL.appendingPathComponent("meeting", isDirectory: true)
+        let destinationURL = sandboxURL.appendingPathComponent("drive", isDirectory: true)
+        try FileManager.default.createDirectory(at: meetingURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+        try "Summary body".write(
+            to: meetingURL.appendingPathComponent("summary.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "Transcript body".write(
+            to: meetingURL.appendingPathComponent("transcript.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let rule = PostProcessingRuleConfiguration(
+            title: "Продуктовый комитет",
+            calendarTitlePattern: "Продуктовый комитет",
+            destinationFolderPath: destinationURL.path,
+            exportContent: .both,
+            filenameTemplate: "{date} {calendarTitle} {type}.md"
+        )
+
+        let result = await PostProcessingService().exportIfNeeded(
+            from: meetingURL,
+            settings: PostProcessingSettings(enabled: true, rules: [rule]),
+            calendarEvent: calendarEvent(title: "Продуктовый комитет")
+        )
+
+        XCTAssertEqual(result.status, .exported)
+        XCTAssertEqual(
+            Set(try FileManager.default.contentsOfDirectory(atPath: destinationURL.path)),
+            [
+                "2026-06-22 Продуктовый комитет summary.md",
+                "2026-06-22 Продуктовый комитет transcript.md",
+            ]
+        )
+        XCTAssertEqual(
+            Set(PostProcessingService.recordedDestinationURLs(from: meetingURL)),
+            Set([
+                destinationURL.appendingPathComponent("2026-06-22 Продуктовый комитет summary.md"),
+                destinationURL.appendingPathComponent("2026-06-22 Продуктовый комитет transcript.md"),
+            ])
+        )
+    }
+
+    func testRecordedDestinationURLsDropsDeletedExports() async throws {
+        let meetingURL = sandboxURL.appendingPathComponent("meeting", isDirectory: true)
+        let destinationURL = sandboxURL.appendingPathComponent("drive", isDirectory: true)
+        try FileManager.default.createDirectory(at: meetingURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+        try "Transcript body".write(
+            to: meetingURL.appendingPathComponent("transcript.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let exportedURL = destinationURL.appendingPathComponent("Sync transcript.md")
+        let rule = PostProcessingRuleConfiguration(
+            title: "Sync",
+            calendarTitlePattern: "Sync",
+            destinationFolderPath: destinationURL.path,
+            exportContent: .transcript,
+            filenameTemplate: "{calendarTitle} {type}.md"
+        )
+
+        _ = await PostProcessingService().exportIfNeeded(
+            from: meetingURL,
+            settings: PostProcessingSettings(enabled: true, rules: [rule]),
+            calendarEvent: calendarEvent(title: "Sync")
+        )
+        XCTAssertEqual(PostProcessingService.recordedDestinationURLs(from: meetingURL), [exportedURL])
+
+        try FileManager.default.removeItem(at: exportedURL)
+
+        XCTAssertTrue(PostProcessingService.recordedDestinationURLs(from: meetingURL).isEmpty)
+    }
+
+    func testTranscriptOnlyExportWorksWithoutSummary() async throws {
+        let meetingURL = sandboxURL.appendingPathComponent("meeting", isDirectory: true)
+        let destinationURL = sandboxURL.appendingPathComponent("drive", isDirectory: true)
+        try FileManager.default.createDirectory(at: meetingURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+        try "Transcript body".write(
+            to: meetingURL.appendingPathComponent("transcript.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let rule = PostProcessingRuleConfiguration(
+            title: "Sync",
+            calendarTitlePattern: "Sync",
+            destinationFolderPath: destinationURL.path,
+            exportContent: .transcript,
+            filenameTemplate: "{calendarTitle} {type}.md"
+        )
+
+        let result = await PostProcessingService().exportIfNeeded(
+            from: meetingURL,
+            settings: PostProcessingSettings(enabled: true, rules: [rule]),
+            calendarEvent: calendarEvent(title: "Sync")
+        )
+
+        XCTAssertEqual(result.status, .exported)
+        XCTAssertEqual(
+            try String(contentsOf: destinationURL.appendingPathComponent("Sync transcript.md"), encoding: .utf8),
+            "Transcript body"
+        )
+    }
+
+    func testBothExportRequiresTypeTokenToAvoidFilenameCollision() async throws {
+        let meetingURL = sandboxURL.appendingPathComponent("meeting", isDirectory: true)
+        let destinationURL = sandboxURL.appendingPathComponent("drive", isDirectory: true)
+        try FileManager.default.createDirectory(at: meetingURL, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: destinationURL, withIntermediateDirectories: true)
+        try "Summary".write(
+            to: meetingURL.appendingPathComponent("summary.md"),
+            atomically: true,
+            encoding: .utf8
+        )
+        try "Transcript".write(
+            to: meetingURL.appendingPathComponent("transcript.txt"),
+            atomically: true,
+            encoding: .utf8
+        )
+        let rule = PostProcessingRuleConfiguration(
+            title: "Sync",
+            calendarTitlePattern: "Sync",
+            destinationFolderPath: destinationURL.path,
+            exportContent: .both,
+            filenameTemplate: "{calendarTitle}.md"
+        )
+
+        let result = await PostProcessingService().exportIfNeeded(
+            from: meetingURL,
+            settings: PostProcessingSettings(enabled: true, rules: [rule]),
+            calendarEvent: calendarEvent(title: "Sync")
+        )
+
+        XCTAssertEqual(result.status, .failed)
+        XCTAssertTrue(result.message.contains("{type}"))
+        XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath: destinationURL.path).isEmpty)
+    }
+
+    func testLegacyRuleDefaultsToSummaryExport() throws {
+        let data = Data("""
+        {
+          "id": "legacy",
+          "title": "Legacy",
+          "enabled": true,
+          "matchMode": "contains",
+          "calendarTitlePattern": "Legacy",
+          "destinationFolderPath": "/tmp",
+          "filenameTemplate": "{date}.md",
+          "conflictBehavior": "skip"
+        }
+        """.utf8)
+
+        let rule = try JSONDecoder().decode(PostProcessingRuleConfiguration.self, from: data)
+
+        XCTAssertEqual(rule.exportContent, .summary)
     }
 
     private func calendarEvent(title: String) -> CalendarEvent {

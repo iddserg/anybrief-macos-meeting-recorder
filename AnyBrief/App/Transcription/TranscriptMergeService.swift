@@ -29,8 +29,24 @@ actor TranscriptMergeService {
         let textURL = meetingFolder.appendingPathComponent("transcript.txt", isDirectory: false)
 
         try encoder.encode(segments).write(to: jsonURL, options: .atomic)
-        try makePlainText(from: segments).write(to: textURL, atomically: true, encoding: .utf8)
+        let text = makePlainText(from: segments)
+        try text.write(to: meetingFolder.appendingPathComponent("transcript_raw.txt"), atomically: true, encoding: .utf8)
+        try text.write(to: textURL, atomically: true, encoding: .utf8)
         return segments
+    }
+
+    /// Recovery of older jobs must rebuild the input from recognition results,
+    /// never from transcript.txt, which may already contain an LLM response.
+    func rawTranscript(in meetingFolder: URL) throws -> String {
+        let rawURL = meetingFolder.appendingPathComponent("transcript_raw.txt")
+        if fileManager.fileExists(atPath: rawURL.path) {
+            return try String(contentsOf: rawURL, encoding: .utf8)
+        }
+        let data = try Data(contentsOf: meetingFolder.appendingPathComponent("transcript_merged.json"))
+        let segments = try JSONDecoder().decode([TranscriptSegment].self, from: data)
+        let text = makePlainText(from: segments)
+        try text.write(to: rawURL, atomically: true, encoding: .utf8)
+        return text
     }
 
     private func sourcePriority(_ sourceTrack: SourceTrack) -> Int {

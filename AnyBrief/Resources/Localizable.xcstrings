@@ -1,6 +1,1415 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "In progress" : {"localizations": {"ru": {"stringUnit": {"state": "translated", "value": "Выполняется"}}}},
+    "Preparing files" : {"localizations": {"ru": {"stringUnit": {"state": "translated", "value": "Подготовка файлов"}}}},
+    "Step %d of %d" : {"localizations": {"ru": {"stringUnit": {"state": "translated", "value": "Шаг %1$d из %2$d"}}}},
+    "Waiting" : {"localizations": {"ru": {"stringUnit": {"state": "translated", "value": "Ожидает"}}}},
+    "The %@ application is no longer running. If the meeting has ended, stop the recording." : {"localizations": {"ru": {"stringUnit": {"state": "translated", "value": "Приложение %@ больше не запущено. Если встреча закончилась, остановите запись."}}}},
+    "Auto-stop in %@" : {"localizations": {"ru": {"stringUnit": {"state": "translated", "value": "Автостоп через %@"}}}},
+    "Disable auto-stop" : {"localizations": {"ru": {"stringUnit": {"state": "translated", "value": "Отключить автостоп"}}}},
+    "The transcript and summary will appear after recording stops and processing finishes." : {"localizations": {"ru": {"stringUnit": {"state": "translated", "value": "Транскрипт и саммари появятся после остановки записи и завершения обработки."}}}},
+    "Go to current recording" : {"localizations": {"ru": {"stringUnit": {"state": "translated", "value": "Перейти к текущей записи"}}}},
+  "Start recording": {"localizations": {"ru": {"stringUnit": {"state": "translated", "value": "Начать запись"}}}},
+  "Codex default": {"localizations": {"ru": {"stringUnit": {"state": "translated", "value": "По умолчанию Codex"}}}},
+  "GPT-5.6 Sol — most capable": {"localizations": {"ru": {"stringUnit": {"state": "translated", "value": "GPT-5.6 Sol — самая мощная"}}}},
+  "GPT-5.6 Terra — balanced": {"localizations": {"ru": {"stringUnit": {"state": "translated", "value": "GPT-5.6 Terra — сбалансированная"}}}},
+  "GPT-5.6 Luna — fast": {"localizations": {"ru": {"stringUnit": {"state": "translated", "value": "GPT-5.6 Luna — быстрая"}}}},
+  "GPT-5.4 Mini — fastest": {"localizations": {"ru": {"stringUnit": {"state": "translated", "value": "GPT-5.4 Mini — самая быстрая"}}}},
+  "A smaller model usually responds faster, but may lose detail on long or complex meetings.": {"localizations": {"ru": {"stringUnit": {"state": "translated", "value": "Более лёгкая модель обычно отвечает быстрее, но может терять детали в длинных или сложных встречах."}}}},
+  "The selected microphone changed its audio format while recording was starting. AnyBrief retried automatically, but the device is still unavailable. Reconnect it or select the system microphone.": {"localizations": {"ru": {"stringUnit": {"state": "translated", "value": "Выбранный микрофон изменил аудиоформат во время запуска записи. AnyBrief автоматически повторил попытку, но устройство всё ещё недоступно. Переподключите его или выберите системный микрофон."}}}},
+  "Do not process microphone": {
+  "localizations": {
+    "ru": {
+      "stringUnit": {
+        "state": "translated",
+        "value": "Не обрабатывать микрофон"
+      }
+    }
+  }
+},
+  "Applies to this meeting when repeating transcription or all processing. Microphone audio stays available for playback.": {
+  "localizations": {
+    "ru": {
+      "stringUnit": {
+        "state": "translated",
+        "value": "Применится к этой встрече при повторной транскрибации или обработке целиком. Аудио микрофона останется доступно для прослушивания."
+      }
+    }
+  }
+},
+  "Transcript → Summary → Export": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Транскрипт → Саммари → Экспорт"
+        }
+      }
+    }
+  },
+  "CLI setup guide": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Как настроить CLI"
+        }
+      }
+    }
+  },
+  "Import a meeting": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Импорт встречи"
+        }
+      }
+    }
+  },
+  "Import": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Импорт"
+        }
+      }
+    }
+  },
+  "Import audio or video…": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Импортировать аудио или видео…"
+        }
+      }
+    }
+  },
+  "Choose a recording from a voice recorder or a video. AnyBrief will extract the audio and process it using your saved settings. The original file stays unchanged.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Выберите запись с диктофона или видео. AnyBrief извлечёт звук и обработает его по сохранённым настройкам. Исходный файл останется без изменений."
+        }
+      }
+    }
+  },
+  "No file selected": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Файл не выбран"
+        }
+      }
+    }
+  },
+  "Choose file…": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Выбрать файл…"
+        }
+      }
+    }
+  },
+  "Meeting date": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Дата встречи"
+        }
+      }
+    }
+  },
+  "Import and process": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Импортировать и обработать"
+        }
+      }
+    }
+  },
+  "Choose an audio or video file.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Выберите аудио- или видеофайл."
+        }
+      }
+    }
+  },
+  "Enter a meeting title.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Введите название встречи."
+        }
+      }
+    }
+  },
+  "The file has no readable audio. Choose another file.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Не удалось прочитать звук в файле. Выберите другой файл."
+        }
+      }
+    }
+  },
+  "Loading processing settings…": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Загрузка настроек обработки…"
+        }
+      }
+    }
+  },
+  "Automatic summary is off. Audio and transcript will be saved; you can create a summary later in the meeting menu.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Автоматическое саммари выключено. Аудио и транскрипт сохранятся; саммари можно создать позже через меню встречи."
+        }
+      }
+    }
+  },
+  "To create a summary, configure an LLM connection and a prompt. You can do this later; your audio will be saved.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Для саммари настройте подключение LLM и промпт. Это можно сделать позже — аудио сохранится."
+        }
+      }
+    }
+  },
+  "Transcription, transcript cleanup, summary and export follow your saved settings.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Распознавание, очистка транскрипта, саммари и экспорт выполнятся по сохранённым настройкам."
+        }
+      }
+    }
+  },
+  "Imported audio": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Импортированное аудио"
+        }
+      }
+    }
+  },
+  "Allow microphone and screen recording access to capture your voice and meeting audio.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Для записи вашего голоса и звука встречи разрешите доступ к микрофону и записи экрана."
+        }
+      }
+    }
+  },
+  "Set up speech recognition to get a transcript. Audio recordings can be processed after setup.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Для транскрипта настройте распознавание речи. Сохранённое аудио можно обработать после настройки."
+        }
+      }
+    }
+  },
+  "Connect an LLM for meeting summaries. Recording and transcription can work without it.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Для саммари подключите LLM. Запись и распознавание работают без него."
+        }
+      }
+    }
+  },
+  "Automatic summary is off. Turn it on to get meeting notes after recording.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Автосаммари выключено. Включите его, чтобы получать итоги встречи после записи."
+        }
+      }
+    }
+  },
+  "Select a summary prompt so AnyBrief knows how to prepare meeting notes.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Выберите промпт саммари, чтобы AnyBrief знал, как подготовить итоги встречи."
+        }
+      }
+    }
+  },
+  "Choose prompt": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Выбрать промпт"
+        }
+      }
+    }
+  },
+  "Preparing meeting materials…": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Готовим материалы встречи…"
+        }
+      }
+    }
+  },
+  "The last summary attempt failed. Your saved materials are still available.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Не удалось создать саммари. Сохранённые материалы встречи доступны."
+        }
+      }
+    }
+  },
+  "A transcript is needed first": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Сначала нужен транскрипт"
+        }
+      }
+    }
+  },
+  "Could not create summary": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Не удалось создать саммари"
+        }
+      }
+    }
+  },
+  "Add a summary to this meeting": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Добавьте саммари к этой встрече"
+        }
+      }
+    }
+  },
+  "Create a transcript from the saved audio, then prepare a summary.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Создайте транскрипт из сохранённого аудио, затем подготовьте саммари."
+        }
+      }
+    }
+  },
+  "Connect an LLM, then create a summary from the saved transcript.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Подключите LLM, затем создайте саммари из сохранённого транскрипта."
+        }
+      }
+    }
+  },
+  "Choose a prompt to create a summary from the saved transcript.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Выберите промпт, чтобы создать саммари из сохранённого транскрипта."
+        }
+      }
+    }
+  },
+  "The transcript is available. You can create a summary now, even if automatic summary is off.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Транскрипт готов. Можно создать саммари сейчас, даже если автосаммари выключено."
+        }
+      }
+    }
+  },
+  "Check LLM connection": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Проверить подключение LLM"
+        }
+      }
+    }
+  },
+  "Create summary": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Создать саммари"
+        }
+      }
+    }
+  },
+    "Audio recording" : {
+      "localizations" : {
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Запись" } }
+      }
+    },
+    "Ready" : {
+      "localizations" : {
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Готово" } }
+      }
+    },
+  "Readiness": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Готовность к работе"
+        }
+      }
+    }
+  },
+  "See what is ready and what needs setup. You can return here at any time from Diagnostics.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Здесь видно, что уже готово к работе и что нужно настроить. Этот экран всегда доступен в меню «Диагностика»."
+        }
+      }
+    }
+  },
+  "These checks use saved settings. Save your changes in Settings or Templates, then return here.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Проверяем сохранённые настройки. Сохраните изменения в «Настройках» или «Шаблонах», затем вернитесь сюда."
+        }
+      }
+    }
+  },
+  "Permissions granted": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Разрешения выданы"
+        }
+      }
+    }
+  },
+  "Permission needed": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Нужно разрешение"
+        }
+      }
+    }
+  },
+  "Setup needed": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Нужна настройка"
+        }
+      }
+    }
+  },
+  "Optional": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Необязательно"
+        }
+      }
+    }
+  },
+  "Allow microphone access to record your voice and screen recording access to capture meeting audio.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Для записи вашего голоса нужен доступ к микрофону, а для звука встречи — разрешение macOS на запись экрана."
+        }
+      }
+    }
+  },
+  "Open permissions": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Открыть разрешения"
+        }
+      }
+    }
+  },
+  "Install the selected speech model and required components to get a transcript. Existing recordings can be processed after setup.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Для транскрипта установите выбранную модель распознавания и необходимые компоненты. Сохранённые записи можно обработать после настройки."
+        }
+      }
+    }
+  },
+  "Set up transcription": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Настроить распознавание"
+        }
+      }
+    }
+  },
+  "Connect an LLM to get meeting summaries and action items. Recording and speech recognition do not require an LLM.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Подключите LLM, чтобы получать итоги встречи и задачи. Для записи и распознавания речи LLM не нужен."
+        }
+      }
+    }
+  },
+  "An LLM connection is enabled, but automatic summary is off. Enable it in Processing to create summaries after recording.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Подключение LLM включено, но автоматическое саммари выключено. Включите его в «Обработке», чтобы получать саммари после записи."
+        }
+      }
+    }
+  },
+  "Choose a summary prompt in Processing so AnyBrief knows how to prepare your meeting notes.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Выберите промпт саммари в «Обработке», чтобы AnyBrief знал, как подготовить итоги встречи."
+        }
+      }
+    }
+  },
+  "Automatic summary is enabled. Check the LLM connection in settings to verify access; adding a connection alone does not confirm it works.": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Автоматическое саммари включено. Проверьте доступ к LLM в настройках: наличие подключения ещё не означает, что оно работает."
+        }
+      }
+    }
+  },
+  "Set up automatic summary": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Настроить автосаммари"
+        }
+      }
+    }
+  },
+  "Set up LLM": {
+    "localizations": {
+      "ru": {
+        "stringUnit": {
+          "state": "translated",
+          "value": "Настроить LLM"
+        }
+      }
+    }
+  },
+    "Summary was not created" : {
+      "localizations" : {
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Саммари не создано" } }
+      }
+    },
+    "The recording is too short for a summary: %lld words; at least %lld are required. The transcript and audio are available in their tabs." : {
+      "localizations" : {
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Запись слишком короткая для саммари: %lld слов из необходимых %lld. Транскрипт и аудио доступны на соседних вкладках." } }
+      }
+    },
+    "Automatic summary was disabled when this recording was processed. The transcript and audio are available in their tabs." : {
+      "localizations" : {
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "При обработке этой записи автоматическое саммари было выключено. Транскрипт и аудио доступны на соседних вкладках." } }
+      }
+    },
+    "There is no saved summary for this recording. Check the processing log or use Repeat summary in the meeting menu." : {
+      "localizations" : {
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "У этой записи нет сохранённого саммари. Проверьте журнал обработки или выберите «Повторить саммари» в меню встречи." } }
+      }
+    },
+    "Basic settings" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Basic settings" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Основные настройки" } }
+      }
+    },
+    "System appearance" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Системная"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System"
+          }
+        }
+      }
+    },
+    "Dark appearance" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Тёмная"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dark"
+          }
+        }
+      }
+    },
+    "Light appearance" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Светлая"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Light"
+          }
+        }
+      }
+    },
+    "Appearance" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Оформление"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appearance"
+          }
+        }
+      }
+    },
+    "Feedback…" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Обратная связь…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Feedback…"
+          }
+        }
+      }
+    },
+    "Based on saved settings. Changes saved before processing can change this plan." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "По сохранённым настройкам. Изменения, сохранённые до обработки, могут изменить этот план."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Based on saved settings. Changes saved before processing can change this plan."
+          }
+        }
+      }
+    },
+    "No enabled export rule matches this meeting." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нет включённого правила экспорта для этой встречи."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No enabled export rule matches this meeting."
+          }
+        }
+      }
+    },
+    "Summary export is unavailable while automatic summary is disabled." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Экспорт саммари недоступен: автоматическое саммари отключено."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summary export is unavailable while automatic summary is disabled."
+          }
+        }
+      }
+    },
+    "Rule" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Правило"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rule"
+          }
+        }
+      }
+    },
+    "Destination folder" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Папка назначения"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Destination folder"
+          }
+        }
+      }
+    },
+    "Transcript cleanup prompt" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Промпт очистки транскрипта"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transcript cleanup prompt"
+          }
+        }
+      }
+    },
+    "No enabled LLM connections" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нет включённых подключений LLM"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No enabled LLM connections"
+          }
+        }
+      }
+    },
+    "Untitled rule" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Правило без названия"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Untitled rule"
+          }
+        }
+      }
+    },
+    "Not configured" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не настроено"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not configured"
+          }
+        }
+      }
+    },
+    "Resize meeting list" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Изменить ширину списка встреч"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resize meeting list"
+          }
+        }
+      }
+    },
+    "This meeting has no saved technical metadata in its summary." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В саммари этой встречи нет сохранённых технических данных."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This meeting has no saved technical metadata in its summary."
+          }
+        }
+      }
+    },
+    "Technical details unavailable" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Техданные отсутствуют"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Technical details unavailable"
+          }
+        }
+      }
+    },
+    "Invalid audio file" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Некорректный аудиофайл"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Invalid audio file"
+          }
+        }
+      }
+    },
+    "Audio file missing" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Аудиофайл отсутствует"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio file missing"
+          }
+        }
+      }
+    },
+    "Recorded, no speech detected" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Записано, речь не обнаружена"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded, no speech detected"
+          }
+        }
+      }
+    },
+    "Automatic" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Автоматически"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic"
+          }
+        }
+      }
+    },
+    "bytes" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "байт"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "bytes"
+          }
+        }
+      }
+    },
+    "Not specified" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не указано"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not specified"
+          }
+        }
+      }
+    },
+    "Speech segments" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Речевые фрагменты"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Speech segments"
+          }
+        }
+      }
+    },
+    "File size" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Размер файла"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File size"
+          }
+        }
+      }
+    },
+    "Speaker separation threshold" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Порог разделения спикеров"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Speaker separation threshold"
+          }
+        }
+      }
+    },
+    "Microphone speakers" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Спикеры микрофона"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Microphone speakers"
+          }
+        }
+      }
+    },
+    "System audio speakers" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Спикеры системного звука"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System audio speakers"
+          }
+        }
+      }
+    },
+    "Configured speaker count" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Число спикеров в настройках"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configured speaker count"
+          }
+        }
+      }
+    },
+    "Speaker count mode" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Режим числа спикеров"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Speaker count mode"
+          }
+        }
+      }
+    },
+    "Speaker separation" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Разделение спикеров"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Speaker separation"
+          }
+        }
+      }
+    },
+    "Acceleration" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ускорение"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acceleration"
+          }
+        }
+      }
+    },
+    "Recognition engine" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Движок распознавания"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recognition engine"
+          }
+        }
+      }
+    },
+    "Chunk size" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Размер фрагмента"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chunk size"
+          }
+        }
+      }
+    },
+    "Chunking threshold" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Порог разбиения"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chunking threshold"
+          }
+        }
+      }
+    },
+    "API address" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Адрес API"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "API address"
+          }
+        }
+      }
+    },
+    "Connection type" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Тип подключения"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection type"
+          }
+        }
+      }
+    },
+    "Summary error" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ошибка саммари"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summary error"
+          }
+        }
+      }
+    },
+    "Duration (seconds)" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Длительность, сек"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Duration (seconds)"
+          }
+        }
+      }
+    },
+    "Duration (minutes)" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Длительность, мин"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Duration (minutes)"
+          }
+        }
+      }
+    },
+    "Recording details" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Запись"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recording details"
+          }
+        }
+      }
+    },
+    "Technical details" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Техданные"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Technical details"
+          }
+        }
+      }
+    },
+    "Audio source" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Источник звука"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio source"
+          }
+        }
+      }
+    },
+    "Together" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вместе"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Together"
+          }
+        }
+      }
+    },
+    "You can start a new recording or browse other meetings while processing continues." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пока идёт обработка, можно начать новую запись или открыть другие встречи."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can start a new recording or browse other meetings while processing continues."
+          }
+        }
+      }
+    },
+    "Recording in processing" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Запись в обработке"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recording in processing"
+          }
+        }
+      }
+    },
+    "%@: %lld calls, %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: %2$lld calls, %3$@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@: звонков — %2$lld, время — %3$@"
+          }
+        }
+      }
+    },
+    "%lld calls in the last year" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld calls in the last year"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld звонков за последний год"
+          }
+        }
+      }
+    },
+    "Less activity" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Less"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Меньше"
+          }
+        }
+      }
+    },
+    "More activity" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "More"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Больше"
+          }
+        }
+      }
+    },
+    "Time in calls: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time in calls: %1$@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Время в звонках: %1$@"
+          }
+        }
+      }
+    },
     "(Default: 0.80)" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -519,19 +1928,19 @@
         }
       }
     },
-    "AnyBrief does not send audio or screenshots to third parties. All data is processed locally on your device." : {
+    "Audio recording and transcription always happen locally. Transcript text is sent to an external LLM only if you configure and enable that connection yourself; audio and screenshots are never sent." : {
       "comment" : "Permissions privacy card description",
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AnyBrief does not send audio or screenshots to third parties. All data is processed locally on your device."
+            "value" : "Audio recording and transcription always happen locally. Transcript text is sent to an external LLM only if you configure and enable that connection yourself; audio and screenshots are never sent."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AnyBrief не передает аудио и скриншоты третьим лицам. Все данные обрабатываются локально на вашем устройстве."
+            "value" : "Запись аудио и транскрипция всегда выполняются локально. Текст транскрипта передаётся во внешний LLM, только если вы сами настроили и включили такое подключение; аудио и скриншоты не передаются."
           }
         }
       }
@@ -778,7 +2187,39 @@
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Экспортировать"
+            "value" : "Экспорт"
+          }
+        }
+      }
+    },
+    "Export content" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export content"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Что экспортировать"
+          }
+        }
+      }
+    },
+    "Both" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Both"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Оба"
           }
         }
       }
@@ -1012,6 +2453,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Автопилот включён"
+          }
+        }
+      }
+    },
+    "Enable or disable Autopilot for the entire recurring series" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable or disable Autopilot for the entire recurring series"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Включить или отключить автопилот для всей серии повторяющихся встреч"
+          }
+        }
+      }
+    },
+    "Enable or disable Autopilot for this meeting" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enable or disable Autopilot for this meeting"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Включить или отключить автопилот для этой встречи"
           }
         }
       }
@@ -4606,6 +6079,22 @@
         }
       }
     },
+    "Open export path" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open export path"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Открыть путь экспорта"
+          }
+        }
+      }
+    },
     "Show in Finder" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5059,6 +6548,38 @@
         }
       }
     },
+    "All system audio" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All system audio"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Весь системный звук"
+          }
+        }
+      }
+    },
+    "No audio has been detected from %@ for more than a minute. Make sure the call is playing and the application is still running." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No audio has been detected from %1$@ for more than a minute. Make sure the call is playing and the application is still running."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Больше минуты нет звука из %1$@. Убедитесь, что звонок продолжается и приложение запущено."
+          }
+        }
+      }
+    },
     "System audio recording failed. Microphone recording continues." : {
       "localizations" : {
         "en" : {
@@ -5105,6 +6626,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Разрешения системы"
+          }
+        }
+      }
+    },
+    "Unavailable application" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unavailable application"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Приложение недоступно"
           }
         }
       }
@@ -7396,18 +8933,18 @@
         }
       }
     },
-    "Only existing folders are used. AnyBrief copies summary.md and never moves the local meeting." : {
+    "Only existing folders are used. AnyBrief copies selected files and never moves the local meeting." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Only existing folders are used. AnyBrief copies summary.md and never moves the local meeting."
+            "value" : "Only existing folders are used. AnyBrief copies selected files and never moves the local meeting."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Используются только существующие папки. AnyBrief копирует summary.md и не перемещает локальную встречу."
+            "value" : "Используются только существующие папки. AnyBrief копирует выбранные файлы и не перемещает локальную встречу."
           }
         }
       }
@@ -7428,18 +8965,18 @@
         }
       }
     },
-    "Available tokens: {date}, {calendarTitle}, {topic}." : {
+    "Available tokens: {date}, {calendarTitle}, {topic}, {type}." : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Available tokens: {date}, {calendarTitle}, {topic}."
+            "value" : "Available tokens: {date}, {calendarTitle}, {topic}, {type}."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Доступные токены: {date}, {calendarTitle}, {topic}."
+            "value" : "Доступные токены: {date}, {calendarTitle}, {topic}, {type}."
           }
         }
       }
@@ -7508,34 +9045,34 @@
         }
       }
     },
-    "Recent summaries" : {
+    "Recent meetings" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Recent summaries"
+            "value" : "Recent meetings"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Недавние саммари"
+            "value" : "Недавние встречи"
           }
         }
       }
     },
-    "Export summary using matching rule" : {
+    "Export using matching rule" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Export summary using matching rule"
+            "value" : "Export using matching rule"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Экспортировать саммари по подходящему правилу"
+            "value" : "Экспортировать по подходящему правилу"
           }
         }
       }
@@ -9406,6 +10943,920 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "%1$d participants" } },
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "%1$d участников" } }
+      }
+    },
+    "Today" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сегодня"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Today"
+          }
+        }
+      }
+    },
+    "Templates" : {
+      "localizations" : {
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Шаблоны" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Templates" } }
+      }
+    },
+    "Templates and rules" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Шаблоны и правила"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Templates and rules"
+          }
+        }
+      }
+    },
+    "After stopping" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "После остановки"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After stopping"
+          }
+        }
+      }
+    },
+    "All changes saved" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Все изменения сохранены"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All changes saved"
+          }
+        }
+      }
+    },
+    "Audio" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Аудио"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio"
+          }
+        }
+      }
+    },
+    "Audio sources" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Источники звука"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio sources"
+          }
+        }
+      }
+    },
+    "Audio unavailable" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Аудио недоступно"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Audio unavailable"
+          }
+        }
+      }
+    },
+    "Automatic export is disabled. You can still edit rules." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Автоматический экспорт выключен. Правила можно редактировать."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic export is disabled. You can still edit rules."
+          }
+        }
+      }
+    },
+    "Choose an existing destination folder." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выберите существующую папку для экспорта."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose an existing destination folder."
+          }
+        }
+      }
+    },
+    "Configure" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Настроить"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configure"
+          }
+        }
+      }
+    },
+    "Could not read material" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не удалось прочитать материал"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not read material"
+          }
+        }
+      }
+    },
+    "Create a rule to save meeting materials into an existing folder." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Создайте правило для сохранения материалов встречи в существующую папку."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Create a rule to save meeting materials into an existing folder."
+          }
+        }
+      }
+    },
+    "Current recording" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Текущая запись"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current recording"
+          }
+        }
+      }
+    },
+    "Delete rule" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить правило"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete rule"
+          }
+        }
+      }
+    },
+    "Diagnostics" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Диагностика"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diagnostics"
+          }
+        }
+      }
+    },
+    "Does not match" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не совпадает"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Does not match"
+          }
+        }
+      }
+    },
+    "Example filenames before resolving existing files. {topic} comes from the meeting summary." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пример имён до проверки существующих файлов. {topic} берётся из саммари встречи."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Example filenames before resolving existing files. {topic} comes from the meeting summary."
+          }
+        }
+      }
+    },
+    "Find a meeting" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Найти встречу"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Find a meeting"
+          }
+        }
+      }
+    },
+    "Include {type} to export both materials." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавьте {type}, чтобы экспортировать оба материала."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Include {type} to export both materials."
+          }
+        }
+      }
+    },
+    "It will appear here after processing. You can also repeat processing from the meeting menu." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Материал появится после обработки. Повторную обработку можно запустить в меню встречи."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It will appear here after processing. You can also repeat processing from the meeting menu."
+          }
+        }
+      }
+    },
+    "Matches" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Совпадает"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Matches"
+          }
+        }
+      }
+    },
+    "Material is not ready" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Материал ещё не готов"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Material is not ready"
+          }
+        }
+      }
+    },
+    "Materials" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Материалы"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Materials"
+          }
+        }
+      }
+    },
+    "Microphone is paused" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Микрофон выключен"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Microphone is paused"
+          }
+        }
+      }
+    },
+    "Microphone is paused. System audio is still recording." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Микрофон выключен. Звук встречи продолжает записываться."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Microphone is paused. System audio is still recording."
+          }
+        }
+      }
+    },
+    "New recording" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Новая запись"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New recording"
+          }
+        }
+      }
+    },
+    "No export rules" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нет правил экспорта"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No export rules"
+          }
+        }
+      }
+    },
+    "No meetings found" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Встречи не найдены"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No meetings found"
+          }
+        }
+      }
+    },
+    "No pattern" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Шаблон не задан"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pattern"
+          }
+        }
+      }
+    },
+    "Open export folder" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Открыть папку экспорта"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open export folder"
+          }
+        }
+      }
+    },
+    "Pattern" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Шаблон"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pattern"
+          }
+        }
+      }
+    },
+    "Pause" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пауза"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pause"
+          }
+        }
+      }
+    },
+    "Paused" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выключен"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paused"
+          }
+        }
+      }
+    },
+    "Play" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Воспроизвести"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Play"
+          }
+        }
+      }
+    },
+    "Playback position" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Позиция воспроизведения"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Playback position"
+          }
+        }
+      }
+    },
+    "Preparing audio…" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подготовка аудио…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing audio…"
+          }
+        }
+      }
+    },
+    "Preview" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пример"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preview"
+          }
+        }
+      }
+    },
+    "Processing and export" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Обработка и экспорт"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Processing and export"
+          }
+        }
+      }
+    },
+    "Product meeting" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Продуктовая встреча"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Product meeting"
+          }
+        }
+      }
+    },
+    "Ready to record" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Всё готово к записи"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ready to record"
+          }
+        }
+      }
+    },
+    "Recording in progress" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Идёт запись"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recording in progress"
+          }
+        }
+      }
+    },
+    "Rename meeting" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Переименовать встречу"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rename meeting"
+          }
+        }
+      }
+    },
+    "Repeat summary" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Повторить саммари"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repeat summary"
+          }
+        }
+      }
+    },
+    "Speech recognition" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Распознавание речи"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Speech recognition"
+          }
+        }
+      }
+    },
+    "Start a recording to capture your microphone and meeting audio." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Начните запись, чтобы сохранить ваш голос и звук встречи."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start a recording to capture your microphone and meeting audio."
+          }
+        }
+      }
+    },
+    "Try a different meeting title." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Попробуйте другое название встречи."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Try a different meeting title."
+          }
+        }
+      }
+    },
+    "Unsaved changes" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Есть несохранённые изменения"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unsaved changes"
+          }
+        }
+      }
+    },
+    "Using matching rules" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "По подходящим правилам"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Using matching rules"
+          }
+        }
+      }
+    },
+    "What and where to save" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Что и куда сохранять"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What and where to save"
+          }
+        }
+      }
+    },
+    "When to apply" : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Когда применять"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When to apply"
+          }
+        }
+      }
+    },
+    "You can browse other meetings while processing continues." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пока идёт обработка, можно работать с другими встречами."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You can browse other meetings while processing continues."
+          }
+        }
+      }
+    },
+    "Your microphone and meeting audio are being recorded." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Записываются ваш голос и звук встречи."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your microphone and meeting audio are being recorded."
+          }
+        }
+      }
+    },
+    "Your recordings and their materials will appear here." : {
+      "localizations" : {
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Здесь появятся ваши записи и материалы встреч."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your recordings and their materials will appear here."
+          }
+        }
+      }
+    },
+    "Choose connections for summaries and transcript cleanup in Templates and rules.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подключения для саммари и очистки транскрипта выбираются в разделе «Шаблоны и правила»."
+          }
+        }
+      }
+    },
+    "Local endpoint for external tools and automations. It listens on this Mac only.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Локальный адрес для внешних инструментов и автоматизаций. Доступен только на этом Mac."
+          }
+        }
+      }
+    },
+    "Meetings today": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Встречи сегодня"
+          }
+        }
+      }
+    },
+    "Add connection": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить подключение"
+          }
+        }
+      }
+    },
+    "Remove connection": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить подключение"
+          }
+        }
+      }
+    },
+    "Delete prompt": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удалить промпт"
+          }
+        }
       }
     }
   },

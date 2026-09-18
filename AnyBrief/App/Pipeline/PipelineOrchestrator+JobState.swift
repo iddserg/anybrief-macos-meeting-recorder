@@ -1,19 +1,44 @@
 import Foundation
 
 extension PipelineOrchestrator {
-    func finalize(_ session: RecordingSession, summary: String, startingAt stage: JobStage) async throws {
+    func finalize(
+        _ session: RecordingSession,
+        summary: String,
+        startingAt stage: JobStage,
+        completion: FinalizationService.Completion = .completed
+    ) async throws {
         guard stage == .convertingAudio || stage == .packaging else {
             throw TranscriptionError(message: "Unsupported finalization stage \(stage.rawValue).")
         }
 
-        await upsertJob(from: session, status: "processing", stage: stage)
+        try Task.checkCancellation()
+        let job = await updatedJob(
+            from: session,
+            status: "processing",
+            stage: stage,
+            errorState: completion.errorState
+        )
+        await jobRepository.upsert(job)
         await loggingService.log(
             "Starting \(stage.rawValue) for job \(session.jobId)",
             level: .info,
             component: "Pipeline"
         )
         Self.appendToJobLog("--- \(stage.rawValue) ---\n", at: session.paths.jobLogURL)
-        try await finalizationService.finalize(session: session, summary: summary, startingAt: stage)
+        try await finalizationService.finalize(
+            session: session,
+            summary: summary,
+            startingAt: stage,
+            completion: completion
+        )
+    }
+
+    func finalizationCompletion(for session: RecordingSession) async -> FinalizationService.Completion {
+        guard let errorState = await jobRepository.get(id: session.jobId)?.error,
+              errorState.code == "summary_api_failed" else {
+            return .completed
+        }
+        return .partialSuccess(errorState)
     }
 
     func fail(_ session: RecordingSession, error: Error, stage: JobStage) async {
@@ -112,6 +137,7 @@ extension PipelineOrchestrator {
     }
 
     func upsertJob(from session: RecordingSession, status: String, stage: JobStage) async {
+        guard !Task.isCancelled else { return }
         let job = await updatedJob(from: session, status: status, stage: stage)
         await jobRepository.upsert(job)
     }

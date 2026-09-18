@@ -23,7 +23,7 @@ actor PipelineOrchestrator {
     enum SummaryOutcome {
         case ready(String)
         case skipped
-        case fallback
+        case fallback(Job.ErrorState)
     }
 
     let jobRepository: JobRepositoryProtocol
@@ -93,7 +93,9 @@ actor PipelineOrchestrator {
             return nil
         }
 
-        activeTasks[jobId]?.cancel()
+        let task = activeTasks[jobId]
+        task?.cancel()
+        await task?.value
         activeTasks[jobId] = nil
         activeSessions[jobId] = nil
         cleanupCancelledArtifacts(for: session)
@@ -134,6 +136,7 @@ actor PipelineOrchestrator {
         )
 
         do {
+            try Task.checkCancellation()
             var didCreateSummary = false
             switch stage {
             case .recorded, .transcribingSystem, .transcribingMic, .mergingTranscripts, .processingTranscript, .summarizing:
@@ -142,17 +145,28 @@ actor PipelineOrchestrator {
                 if stage != .summarizing {
                     try await cleanupTranscriptIfNeeded(for: checkedSession)
                 }
-                switch await summarize(segments: segments, for: checkedSession) {
+                let summaryOutcome = try await summarize(segments: segments, for: checkedSession)
+                let settings = await effectiveSettings(for: checkedSession)
+                try Task.checkCancellation()
+                await runPostProcessingExport(for: checkedSession, settings: settings, calendarEvent: nil)
+                switch summaryOutcome {
                 case let .ready(summary):
                     didCreateSummary = true
                     try await finalize(checkedSession, summary: summary, startingAt: .convertingAudio)
                 case .skipped:
                     try await finalize(checkedSession, summary: "", startingAt: .convertingAudio)
-                case .fallback:
-                    return
+                case let .fallback(errorState):
+                    didCreateSummary = true
+                    try await finalize(
+                        checkedSession,
+                        summary: "",
+                        startingAt: .convertingAudio,
+                        completion: .partialSuccess(errorState)
+                    )
                 }
             case .convertingAudio, .packaging:
-                try await finalize(session, summary: "", startingAt: stage)
+                let completion = await finalizationCompletion(for: session)
+                try await finalize(session, summary: "", startingAt: stage, completion: completion)
             case .recording, .completed, .partialSuccess, .cancelled:
                 throw TranscriptionError(message: "Unsupported recovery stage \(stage.rawValue).")
             }
@@ -165,7 +179,7 @@ actor PipelineOrchestrator {
             }
             try Task.checkCancellation()
         } catch {
-            if error is CancellationError {
+            if Task.isCancelled || error is CancellationError {
                 return
             }
             let stage = await currentStage(for: session)

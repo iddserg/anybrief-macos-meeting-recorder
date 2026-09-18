@@ -2,6 +2,9 @@ import Foundation
 import SwiftUI
 
 struct OllamaModule: SummaryProviderModule {
+    var settingsPayloadCodec: ModuleSettingsPayloadCodec {
+        ModuleSettingsPayloadCodec(OllamaConfig.self, includesEnabled: false, secrets: [])
+    }
     let id: SummaryProvider = .localOllama
     let title = "Local Ollama"
     let systemImage = "desktopcomputer"

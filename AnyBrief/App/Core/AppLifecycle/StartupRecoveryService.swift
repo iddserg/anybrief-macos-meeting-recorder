@@ -97,7 +97,8 @@ actor StartupRecoveryService {
         guard let paths = try storageService.findMeetingPaths(jobId: job.id, createdAt: job.createdAt) else {
             return nil
         }
-        let metadata = Self.autopilotMetadata(in: paths.folderURL)
+        let metadata = MeetingMetadataStore.load(from: paths.folderURL)
+        let title = MeetingMetadataStore.title(in: paths.folderURL)
 
         return RecordingSession(
             jobId: job.id,
@@ -105,7 +106,7 @@ actor StartupRecoveryService {
             paths: paths,
             startedAt: job.createdAt,
             source: job.source,
-            title: job.meetingId,
+            title: title,
             autoStopDisabled: false,
             recordingWarnings: job.warnings,
             systemSpeakersOverride: metadata?.systemSpeakersOverride,
@@ -113,28 +114,13 @@ actor StartupRecoveryService {
         )
     }
 
-    private static func autopilotMetadata(in folderURL: URL) -> AutopilotRecordingMetadata? {
-        let metadataURL = folderURL.appendingPathComponent(".anybrief-autopilot.json", isDirectory: false)
-        guard let data = try? Data(contentsOf: metadataURL) else {
-            return nil
-        }
-        return try? JSONDecoder().decode(AutopilotRecordingMetadata.self, from: data)
-    }
-
     private func requiredInputsExist(for stage: JobStage, session: RecordingSession) -> Bool {
         let fileManager = FileManager.default
         let paths = session.paths
-        let systemCombinedURL = FluidAudioSTTProvider.combinedTxtURL(
-            for: paths.systemWavURL,
-            outputDir: FluidAudioSTTProvider.outputDir(for: paths, track: .system)
-        )
-        let micCombinedURL = FluidAudioSTTProvider.combinedTxtURL(
-            for: paths.micWavURL,
-            outputDir: FluidAudioSTTProvider.outputDir(for: paths, track: .mic)
-        )
+        let systemCombinedURL = paths.tmpURL.appendingPathComponent("stt-system/system_combined.txt")
+        let micCombinedURL = paths.tmpURL.appendingPathComponent("stt-mic/mic_combined.txt")
         let transcriptURL = paths.folderURL.appendingPathComponent("transcript.txt", isDirectory: false)
         let mergedJSONURL = paths.folderURL.appendingPathComponent("transcript_merged.json", isDirectory: false)
-        let summaryURL = paths.folderURL.appendingPathComponent("summary.md", isDirectory: false)
         let systemMP3URL = paths.folderURL.appendingPathComponent("system_audio.mp3", isDirectory: false)
         let micMP3URL = paths.folderURL.appendingPathComponent("microphone_audio.mp3", isDirectory: false)
 
@@ -151,14 +137,17 @@ actor StartupRecoveryService {
         case .summarizing:
             requiredURLs = [transcriptURL, mergedJSONURL]
         case .convertingAudio:
-            requiredURLs = [paths.systemWavURL, paths.micWavURL, transcriptURL, mergedJSONURL, summaryURL]
+            requiredURLs = [paths.systemWavURL, paths.micWavURL, transcriptURL, mergedJSONURL]
         case .packaging:
-            requiredURLs = [systemMP3URL, micMP3URL, transcriptURL, mergedJSONURL, summaryURL]
+            requiredURLs = [systemMP3URL, micMP3URL, transcriptURL, mergedJSONURL]
         case .recording, .completed, .partialSuccess, .cancelled:
             return false
         }
 
-        return requiredURLs.allSatisfy { fileManager.fileExists(atPath: $0.path) }
+        let microphoneInputs = [paths.micWavURL, micCombinedURL, micMP3URL]
+        return requiredURLs
+            .filter { session.hasMicrophoneTrack || !microphoneInputs.contains($0) }
+            .allSatisfy { fileManager.fileExists(atPath: $0.path) }
     }
 
     private func cleanupTemporaryArtifacts(for job: Job) throws {
@@ -365,6 +354,6 @@ actor StartupRecoveryService {
     }
 
     private func shouldPreserveTemporaryArtifacts(for job: Job) -> Bool {
-        job.status == "failed" && job.stage == .recording
+        job.status != "completed"
     }
 }

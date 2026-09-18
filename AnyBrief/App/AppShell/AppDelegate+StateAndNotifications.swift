@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import UserNotifications
 
 extension AppDelegate {
     func apply(appState: AppState) async {
@@ -8,6 +9,7 @@ extension AppDelegate {
         await MainActor.run {
             environment.appState = effectiveAppState
             menuContext = MenuBarContext(appState: effectiveAppState, currentSession: currentSession)
+            dashboardWindowController?.applyRuntimeState(effectiveAppState, currentSession: currentSession)
             menuBarManager.update(
                 context: menuContext,
                 target: self
@@ -131,5 +133,32 @@ extension AppDelegate {
         _ = await MainActor.run {
             NSApp.requestUserAttention(.informationalRequest)
         }
+    }
+}
+
+extension AppDelegate: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        if notification.request.content.categoryIdentifier == NotificationService.recordingSourceUnavailableCategoryIdentifier {
+            completionHandler([.banner, .sound])
+        } else {
+            completionHandler([])
+        }
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        if response.actionIdentifier == NotificationService.stopRecordingActionIdentifier {
+            Task { @MainActor [weak self] in
+                self?.stopRecording()
+            }
+        }
+        completionHandler()
     }
 }

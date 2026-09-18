@@ -86,6 +86,54 @@ final class AutomationActionResolverTests: XCTestCase {
         XCTAssertEqual(actions.startCalendarSpeakerMaxOverrides, [5])
     }
 
+    func testAutopilotExcludesOnlySelectedOneOffEvent() async {
+        let resolver = AutomationActionResolver(
+            jobRepository: TestAutomationJobRepository(),
+            currentSessionProvider: { nil }
+        )
+        let excludedEvent = makeEligibleEvent(uid: "excluded-event")
+        let includedEvent = makeEligibleEvent(uid: "included-event")
+        var settings = makeSettings()
+        settings.automation.calendarAutopilotSettings.excludedEventUIDs = [excludedEvent.uid]
+
+        let actions = await resolver.resolve(
+            AutomationEvent(
+                sourceID: .calDAV,
+                kind: .calendarEventsRefreshed(events: [excludedEvent, includedEvent], settings: settings)
+            )
+        )
+
+        XCTAssertEqual(actions.startCalendarEventUIDs, [includedEvent.uid])
+    }
+
+    func testAutopilotExcludesEveryOccurrenceInRecurringSeries() async {
+        let resolver = AutomationActionResolver(
+            jobRepository: TestAutomationJobRepository(),
+            currentSessionProvider: { nil }
+        )
+        let firstOccurrence = makeEligibleEvent(
+            uid: "series-event-first",
+            originalUID: "series-event",
+            recurrenceRule: "FREQ=WEEKLY"
+        )
+        let secondOccurrence = makeEligibleEvent(
+            uid: "series-event-second",
+            originalUID: "series-event",
+            recurrenceRule: "FREQ=WEEKLY"
+        )
+        var settings = makeSettings()
+        settings.automation.calendarAutopilotSettings.excludedSeriesUIDs = ["series-event"]
+
+        let actions = await resolver.resolve(
+            AutomationEvent(
+                sourceID: .calDAV,
+                kind: .calendarEventsRefreshed(events: [firstOccurrence, secondOccurrence], settings: settings)
+            )
+        )
+
+        XCTAssertTrue(actions.isEmpty)
+    }
+
     func testFixedSpeakerCountDoesNotCreateCalendarOverride() async {
         let resolver = AutomationActionResolver(
             jobRepository: TestAutomationJobRepository(),
@@ -110,23 +158,126 @@ final class AutomationActionResolverTests: XCTestCase {
         XCTAssertEqual(actions.startCalendarSpeakerMaxOverrides, [])
     }
 
+    func testCalendarEventDoesNotStartBeforeItsExactStartTime() async {
+        let resolver = AutomationActionResolver(
+            jobRepository: TestAutomationJobRepository(),
+            currentSessionProvider: { nil }
+        )
+        let event = makeEligibleEvent(
+            uid: "future-event",
+            startAt: Date().addingTimeInterval(60),
+            endAt: Date().addingTimeInterval(660)
+        )
+
+        let actions = await resolver.resolve(
+            AutomationEvent(sourceID: .calDAV, kind: .calendarEventsRefreshed(events: [event], settings: makeSettings()))
+        )
+
+        XCTAssertTrue(actions.isEmpty)
+    }
+
+    func testBackToBackCalendarEventsStopThenStartAtBoundary() async {
+        let sessionBox = TestSessionBox()
+        let resolver = AutomationActionResolver(
+            jobRepository: TestAutomationJobRepository(),
+            currentSessionProvider: { await sessionBox.session() }
+        )
+        let first = makeEligibleEvent(
+            uid: "first-event",
+            startAt: Date().addingTimeInterval(-600),
+            endAt: Date().addingTimeInterval(-1)
+        )
+        let second = makeEligibleEvent(
+            uid: "second-event",
+            startAt: Date().addingTimeInterval(-1),
+            endAt: Date().addingTimeInterval(600)
+        )
+        await sessionBox.setSession(
+            RecordingSession(
+                jobId: "first-job",
+                pid: 1,
+                paths: makeMeetingPaths(),
+                startedAt: first.startAt,
+                source: "calendar",
+                title: first.title,
+                autoStopDisabled: false,
+                autoStopAt: first.endAt,
+                calendarEventUID: first.uid
+            )
+        )
+
+        let actions = await resolver.resolve(
+            AutomationEvent(sourceID: .calDAV, kind: .calendarEventsRefreshed(events: [first, second], settings: makeSettings()))
+        )
+
+        XCTAssertEqual(actions.count, 2)
+        if case let .stopCalendarRecording(session, _) = actions[0] {
+            XCTAssertEqual(session.jobId, "first-job")
+        } else {
+            XCTFail("Expected the first recording to stop before the next one starts")
+        }
+        XCTAssertEqual(actions.startCalendarEventUIDs, [second.uid])
+    }
+
+    func testDisabledAutoStopAlsoPreventsSwitchToNextCalendarEvent() async {
+        let sessionBox = TestSessionBox()
+        let resolver = AutomationActionResolver(
+            jobRepository: TestAutomationJobRepository(),
+            currentSessionProvider: { await sessionBox.session() }
+        )
+        let first = makeEligibleEvent(
+            uid: "continued-event",
+            startAt: Date().addingTimeInterval(-600),
+            endAt: Date().addingTimeInterval(-1)
+        )
+        let second = makeEligibleEvent(
+            uid: "next-event",
+            startAt: Date().addingTimeInterval(-1),
+            endAt: Date().addingTimeInterval(600)
+        )
+        await sessionBox.setSession(
+            RecordingSession(
+                jobId: "continued-job",
+                pid: 1,
+                paths: makeMeetingPaths(),
+                startedAt: first.startAt,
+                source: "calendar",
+                title: first.title,
+                autoStopDisabled: true,
+                autoStopAt: first.endAt,
+                calendarEventUID: first.uid
+            )
+        )
+
+        let actions = await resolver.resolve(
+            AutomationEvent(sourceID: .calDAV, kind: .calendarEventsRefreshed(events: [first, second], settings: makeSettings()))
+        )
+
+        XCTAssertTrue(actions.isEmpty)
+    }
+
     private func makeSettings() -> AppSettings {
         var settings = AppSettings()
         settings.automation.calendarAutopilotSettings.enabled = true
         settings.automation.calendarAutopilotSettings.filter = "all"
-        settings.automation.calendarAutopilotSettings.startLeadSec = 30
-        settings.automation.calendarAutopilotSettings.stopGraceSec = 60
         return settings
     }
 
-    private func makeEligibleEvent(uid: String, participantCount: Int = 2) -> CalendarEvent {
+    private func makeEligibleEvent(
+        uid: String,
+        originalUID: String? = nil,
+        participantCount: Int = 2,
+        recurrenceRule: String? = nil,
+        startAt: Date = Date().addingTimeInterval(-60),
+        endAt: Date = Date().addingTimeInterval(600)
+    ) -> CalendarEvent {
         CalendarEvent(
             uid: uid,
-            originalUID: uid,
+            originalUID: originalUID ?? uid,
             calendarName: "work",
             title: "Calendar meeting",
-            startAt: Date().addingTimeInterval(-60),
-            endAt: Date().addingTimeInterval(600),
+            startAt: startAt,
+            endAt: endAt,
             timeZone: "UTC",
             location: nil,
             notes: nil,
@@ -135,7 +286,7 @@ final class AutomationActionResolverTests: XCTestCase {
             meetingURLs: ["https://zoom.us/j/123"],
             participantCount: participantCount,
             hasMeetingURL: true,
-            recurrenceRule: nil,
+            recurrenceRule: recurrenceRule,
             recurrenceID: nil
         )
     }

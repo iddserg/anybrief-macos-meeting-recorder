@@ -1,6 +1,42 @@
 
 import AppKit
 
+private enum MeetingMutationWorker {
+    static func renameAndWriteTitle(
+        folderURL: URL,
+        targetName: String?,
+        title: String
+    ) throws -> URL {
+        var destinationURL = folderURL
+        if let targetName {
+            let parentURL = folderURL.deletingLastPathComponent()
+            var candidateURL = parentURL.appendingPathComponent(targetName, isDirectory: true)
+            if candidateURL != folderURL {
+                if FileManager.default.fileExists(atPath: candidateURL.path) {
+                    var counter = 2
+                    repeat {
+                        candidateURL = parentURL.appendingPathComponent("\(targetName)_\(counter)", isDirectory: true)
+                        counter += 1
+                    } while FileManager.default.fileExists(atPath: candidateURL.path)
+                }
+                try FileManager.default.moveItem(at: folderURL, to: candidateURL)
+                destinationURL = candidateURL
+            }
+        }
+        try title.write(
+            to: destinationURL.appendingPathComponent(".anybrief-title", isDirectory: false),
+            atomically: true,
+            encoding: .utf8
+        )
+        return destinationURL
+    }
+
+    static func deleteFolderIfPresent(_ folderURL: URL) throws {
+        guard FileManager.default.fileExists(atPath: folderURL.path) else { return }
+        try FileManager.default.removeItem(at: folderURL)
+    }
+}
+
 extension DashboardViewModel {
     func openMeetingsFolder() {
         workspace.open(storageService.meetingsDirectoryURL)
@@ -95,20 +131,19 @@ extension DashboardViewModel {
         guard !trimmedTitle.isEmpty else {
             return
         }
+        let targetName = shouldRenameFolderImmediately(meeting)
+            ? Self.renamedCompletedFolderName(currentName: meeting.folderURL.lastPathComponent, title: trimmedTitle)
+            : nil
 
         Task {
             do {
-                let renamedFolderURL: URL
-                if shouldRenameFolderImmediately(meeting) {
-                    renamedFolderURL = try renameCompletedMeetingFolder(meeting.folderURL, title: trimmedTitle)
-                } else {
-                    renamedFolderURL = meeting.folderURL
-                }
-                try trimmedTitle.write(
-                    to: Self.titleOverrideURL(for: renamedFolderURL),
-                    atomically: true,
-                    encoding: .utf8
-                )
+                let renamedFolderURL = try await Task.detached(priority: .userInitiated) {
+                    try MeetingMutationWorker.renameAndWriteTitle(
+                        folderURL: meeting.folderURL,
+                        targetName: targetName,
+                        title: trimmedTitle
+                    )
+                }.value
                 await loggingService.log(
                     "Renamed meeting \(meeting.folderURL.lastPathComponent) to \(renamedFolderURL.lastPathComponent).",
                     level: .info,
@@ -132,9 +167,9 @@ extension DashboardViewModel {
 
         Task {
             do {
-                if fileManager.fileExists(atPath: meeting.folderURL.path) {
-                    try fileManager.removeItem(at: meeting.folderURL)
-                }
+                try await Task.detached(priority: .userInitiated) {
+                    try MeetingMutationWorker.deleteFolderIfPresent(meeting.folderURL)
+                }.value
                 await removeJob(for: meeting)
                 await loggingService.log(
                     "Deleted meeting folder \(meeting.folderURL.lastPathComponent).",
@@ -151,65 +186,48 @@ extension DashboardViewModel {
             }
         }
     }
-    func loadCurrentActivity() async -> CurrentActivity? {
+    func loadActivities() async -> [CurrentActivity] {
         let jobs = await jobRepository.load()
         let state = await appStateProvider()
-        guard let activity = Self.currentActivity(from: jobs, appState: state, now: Date()) else {
-            return nil
+        var result: [CurrentActivity] = []
+        for activity in Self.activities(from: jobs, appState: state, now: Date()) {
+            let detail = activity.jobId == "runtime" ? nil : await pipelineActivityProvider(activity.jobId)
+            result.append(CurrentActivity(
+                jobId: activity.jobId, status: activity.status, stage: activity.stage,
+                startedAt: activity.startedAt, duration: activity.duration, detail: detail
+            ))
         }
-        guard activity.jobId != "runtime" else {
-            return activity
-        }
-        let detail = await pipelineActivityProvider(activity.jobId)
-        return CurrentActivity(
-            jobId: activity.jobId,
-            status: activity.status,
-            stage: activity.stage,
-            startedAt: activity.startedAt,
-            duration: activity.duration,
-            detail: detail
-        )
+        return result
     }
 
     static func currentActivity(from jobs: [Job], appState: AppState, now: Date) -> CurrentActivity? {
-        let activeJob = jobs
-            .filter { !$0.isTerminal }
-            .sorted {
-                if $0.status == "recording", $1.status != "recording" {
-                    return true
-                }
-                if $0.status != "recording", $1.status == "recording" {
-                    return false
-                }
-                return $0.updatedAt > $1.updatedAt
-            }
-            .first
+        activities(from: jobs, appState: appState, now: now).first
+    }
 
-        guard let activeJob else {
-            guard appState != .idle, appState != .needsPermissions else {
-                return nil
+    static func activities(from jobs: [Job], appState: AppState, now: Date) -> [CurrentActivity] {
+        var result = jobs.filter { !$0.isTerminal }.sorted {
+            if ($0.status == "recording") != ($1.status == "recording") {
+                return $0.status == "recording"
             }
-
-            return CurrentActivity(
-                jobId: "runtime",
-                status: String(describing: appState).capitalized,
-                stage: String(describing: appState),
-                startedAt: now,
-                duration: 0,
+            if $0.createdAt != $1.createdAt { return $0.createdAt < $1.createdAt }
+            return $0.id < $1.id
+        }.map { job in
+            CurrentActivity(
+                jobId: job.id, status: job.status, stage: job.stage.rawValue,
+                startedAt: job.updatedAt,
+                duration: max(0, (job.completedAt ?? now).timeIntervalSince(job.updatedAt)),
                 detail: nil
             )
         }
-
-        let stageStartedAt = activeJob.updatedAt
-        let endDate = activeJob.completedAt ?? now
-        return CurrentActivity(
-            jobId: activeJob.id,
-            status: activeJob.status,
-            stage: activeJob.stage.rawValue,
-            startedAt: stageStartedAt,
-            duration: max(0, endDate.timeIntervalSince(stageStartedAt)),
-            detail: nil
-        )
+        // Capture starts before its job is persisted, including while older jobs process.
+        if (appState == .recording && !result.contains(where: \.isRecording))
+            || (result.isEmpty && appState != .idle && appState != .needsPermissions) {
+            result.insert(CurrentActivity(
+                jobId: "runtime", status: String(describing: appState).capitalized,
+                stage: String(describing: appState), startedAt: now, duration: 0, detail: nil
+            ), at: 0)
+        }
+        return result
     }
 
     func loadRecentMeetings() async -> [RecentMeeting] {

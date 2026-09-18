@@ -2,17 +2,6 @@ import AVFoundation
 import CoreML
 import Foundation
 
-struct TranscriptionModelStatus: Equatable {
-    let modelsDirectoryURL: URL
-    let isInstalled: Bool
-    let installedSizeBytes: Int64
-    let missingRelativePaths: [String]
-
-    var installedSizeDescription: String {
-        ByteCountFormatter.string(fromByteCount: installedSizeBytes, countStyle: .file)
-    }
-}
-
 enum FluidAudioSTTModelServiceError: LocalizedError {
     case audioPreparationFailed
     case downloadFailed(detail: String)
@@ -41,13 +30,7 @@ final class FluidAudioSTTModelService {
         "parakeet-tdt-0.6b-v3/parakeet_vocab.json",
     ]
 
-    static let diarizationRelativePaths = [
-        "speaker-diarization/Segmentation.mlmodelc",
-        "speaker-diarization/FBank.mlmodelc",
-        "speaker-diarization/Embedding.mlmodelc",
-        "speaker-diarization/PldaRho.mlmodelc",
-        "speaker-diarization/plda-parameters.json",
-    ]
+    static let diarizationRelativePaths = DiarizationModelService.relativePaths
 
     private let fileManager: FileManager
     private let sttURLResolver: () throws -> URL
@@ -176,11 +159,8 @@ final class FluidAudioSTTModelService {
     }
 
     private func prepareDiarizationModels() async throws {
-        let sttURL = try sttURLResolver()
-        let process = Process()
-        process.executableURL = sttURL
-        process.arguments = ["--prepare-diarization-models"]
-        try await run(process)
+        try await DiarizationModelService(fileManager: fileManager, sttURLResolver: sttURLResolver,
+                                         modelsDirectoryURL: modelsDirectoryURL).downloadModels()
     }
 
     private func warmModels(mode: String) async throws {

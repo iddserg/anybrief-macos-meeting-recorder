@@ -1,37 +1,86 @@
 
 import Foundation
 
-extension DashboardViewModel {
-    func clearLogs() {
-        Task {
-            let logURLs = [
-                logsDirectoryURL.appendingPathComponent("app.log.1", isDirectory: false),
-                logsDirectoryURL.appendingPathComponent("app.log", isDirectory: false),
-            ] + recentJobLogURLs()
-            for url in logURLs where fileManager.fileExists(atPath: url.path) {
-                try? "".write(to: url, atomically: true, encoding: .utf8)
-            }
-            await loggingService.log("Logs cleared by user.", level: .info, component: "Dashboard")
-            await MainActor.run {
-                activityLog = ""
-                errorLog = ""
-            }
-        }
-    }
-
-    func loadLogs() async -> (activity: String, errors: String) {
+private enum DashboardLogLoader {
+    static func load(from logsDirectoryURL: URL, limit: Int = 20) -> (activity: String, errors: String) {
         let appLogURLs = [
             logsDirectoryURL.appendingPathComponent("app.log.1", isDirectory: false),
             logsDirectoryURL.appendingPathComponent("app.log", isDirectory: false),
         ]
-
         let appLines = appLogURLs.flatMap(logLines)
-        let jobLines = recentJobLogURLs().flatMap(logLines)
-        let errorLines = Array((appLines + jobLines).filter(Self.isWarningOrErrorLogLine).suffix(100))
+        let jobLines = recentJobLogURLs(in: logsDirectoryURL, limit: limit).flatMap(logLines)
+        let errorLines = Array((appLines + jobLines).filter(isWarningOrErrorLogLine).suffix(100))
         return (
             Array(appLines.suffix(200)).joined(separator: "\n"),
             errorLines.joined(separator: "\n")
         )
+    }
+
+    static func clear(at urls: [URL]) {
+        for url in urls where FileManager.default.fileExists(atPath: url.path) {
+            try? "".write(to: url, atomically: true, encoding: .utf8)
+        }
+    }
+
+    static func recentJobLogURLs(in logsDirectoryURL: URL, limit: Int = 20) -> [URL] {
+        let jobsDirectoryURL = logsDirectoryURL.appendingPathComponent("jobs", isDirectory: true)
+        guard let urls = try? FileManager.default.contentsOfDirectory(
+            at: jobsDirectoryURL,
+            includingPropertiesForKeys: [.contentModificationDateKey, .isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) else {
+            return []
+        }
+
+        return Array(urls.filter { url in
+            url.pathExtension == "log"
+                && ((try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true)
+        }.sorted { lhs, rhs in
+            let lhsDate = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            let rhsDate = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+            return lhsDate < rhsDate
+        }.suffix(limit))
+    }
+
+    private static func logLines(from url: URL) -> [String] {
+        guard let content = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        return content.split(separator: "\n").map(String.init)
+    }
+
+    private static func isWarningOrErrorLogLine(_ line: String) -> Bool {
+        line.contains("[ERROR]") || line.contains("[WARN]")
+            || line.hasPrefix("ERROR:") || line.hasPrefix("WARN:")
+    }
+}
+
+extension DashboardViewModel {
+    func jobLogURL(for meeting: RecentMeeting) -> URL? {
+        guard let jobId = meeting.jobId,
+              !jobId.isEmpty, !jobId.contains("/"), jobId != ".", jobId != ".." else { return nil }
+        return logsDirectoryURL.appendingPathComponent("jobs", isDirectory: true)
+            .appendingPathComponent("\(jobId).log")
+    }
+
+    func clearLogs() {
+        let logURLs = [
+            logsDirectoryURL.appendingPathComponent("app.log.1", isDirectory: false),
+            logsDirectoryURL.appendingPathComponent("app.log", isDirectory: false),
+        ] + DashboardLogLoader.recentJobLogURLs(in: logsDirectoryURL)
+        Task {
+            await Task.detached(priority: .utility) {
+                DashboardLogLoader.clear(at: logURLs)
+            }.value
+            await loggingService.log("Logs cleared by user.", level: .info, component: "Dashboard")
+            activityLog = ""
+            errorLog = ""
+        }
+    }
+
+    func loadLogs() async -> (activity: String, errors: String) {
+        let directoryURL = logsDirectoryURL
+        return await Task.detached(priority: .utility) {
+            DashboardLogLoader.load(from: directoryURL)
+        }.value
     }
 
     private var logsDirectoryURL: URL {
@@ -40,42 +89,4 @@ extension DashboardViewModel {
             .appendingPathComponent("logs", isDirectory: true)
     }
 
-    private func recentJobLogURLs(limit: Int = 20) -> [URL] {
-        let jobsDirectoryURL = logsDirectoryURL.appendingPathComponent("jobs", isDirectory: true)
-        guard let urls = try? fileManager.contentsOfDirectory(
-            at: jobsDirectoryURL,
-            includingPropertiesForKeys: [.contentModificationDateKey, .isRegularFileKey],
-            options: [.skipsHiddenFiles]
-        ) else {
-            return []
-        }
-
-        return Array(
-            urls
-                .filter { url in
-                    url.pathExtension == "log" &&
-                        ((try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true)
-                }
-                .sorted { lhs, rhs in
-                    let lhsDate = (try? lhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-                    let rhsDate = (try? rhs.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
-                    return lhsDate < rhsDate
-                }
-                .suffix(limit)
-        )
-    }
-
-    private func logLines(from url: URL) -> [String] {
-        guard let content = try? String(contentsOf: url, encoding: .utf8) else {
-            return []
-        }
-        return content.split(separator: "\n").map(String.init)
-    }
-
-    private static func isWarningOrErrorLogLine(_ line: String) -> Bool {
-        line.contains("[ERROR]") ||
-            line.contains("[WARN]") ||
-            line.hasPrefix("ERROR:") ||
-            line.hasPrefix("WARN:")
-    }
 }

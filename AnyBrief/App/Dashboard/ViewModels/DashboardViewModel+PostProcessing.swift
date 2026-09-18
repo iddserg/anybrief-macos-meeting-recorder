@@ -67,12 +67,13 @@ extension DashboardViewModel {
         workspace.open(URL(fileURLWithPath: rule.destinationFolderPath, isDirectory: true))
     }
 
-    func exportMeetingSummary(_ meeting: RecentMeeting) {
+    func exportMeeting(_ meeting: RecentMeeting) {
         guard !exportingMeetingIds.contains(meeting.id) else {
             return
         }
         exportingMeetingIds.insert(meeting.id)
         postProcessingMessage = nil
+        postProcessingMessageMeetingID = meeting.id
         postProcessingMessageIsError = false
 
         Task {
@@ -80,7 +81,7 @@ extension DashboardViewModel {
                 enabled: postProcessingEnabled,
                 rules: PostProcessingSettings.normalizedRules(postProcessingRules)
             )
-            let result = await postProcessingService.exportSummaryIfNeeded(
+            let result = await postProcessingService.exportIfNeeded(
                 from: meeting.folderURL,
                 settings: settings,
                 calendarEvent: nil
@@ -88,9 +89,45 @@ extension DashboardViewModel {
             await MainActor.run {
                 exportingMeetingIds.remove(meeting.id)
                 postProcessingMessage = dashboardMessage(for: result)
+                postProcessingMessageMeetingID = meeting.id
                 postProcessingMessageIsError = result.status == .failed
             }
         }
+    }
+
+    func clearPostProcessingMessage() {
+        postProcessingMessage = nil
+        postProcessingMessageMeetingID = nil
+        postProcessingMessageIsError = false
+    }
+
+    func postProcessingMessage(for meetingID: String) -> String? {
+        postProcessingMessageMeetingID == meetingID ? postProcessingMessage : nil
+    }
+
+    func hasExportableArtifacts(_ meeting: RecentMeeting) -> Bool {
+        if meeting.summaryURL != nil {
+            return true
+        }
+        let transcriptURL = meeting.folderURL.appendingPathComponent("transcript.txt", isDirectory: false)
+        return fileManager.fileExists(atPath: transcriptURL.path)
+    }
+
+    func canOpenExportPath(_ meeting: RecentMeeting) -> Bool {
+        !exportedDestinationURLs(for: meeting).isEmpty
+    }
+
+    func openExportPath(_ meeting: RecentMeeting) {
+        let destinationURLs = exportedDestinationURLs(for: meeting)
+        guard !destinationURLs.isEmpty else { return }
+        workspace.activateFileViewerSelecting(destinationURLs)
+    }
+
+    private func exportedDestinationURLs(for meeting: RecentMeeting) -> [URL] {
+        PostProcessingService.recordedDestinationURLs(
+            from: meeting.folderURL,
+            fileManager: fileManager
+        )
     }
 
     func destinationExists(for rule: PostProcessingRuleConfiguration) -> Bool {
@@ -102,10 +139,7 @@ extension DashboardViewModel {
     private func dashboardMessage(for result: PostProcessingExportResult) -> String {
         switch result.status {
         case .exported:
-            if let destinationURL = result.destinationURL {
-                return String(format: String(localized: "Exported to %@"), destinationURL.path)
-            }
-            return String(localized: "Exported.")
+            return result.message
         case .skipped:
             return result.message
         case .failed:

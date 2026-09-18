@@ -21,7 +21,6 @@ final class DashboardWindowController: NSWindowController, NSWindowDelegate {
         let hostingController = NSHostingController(rootView: contentView)
         let window = NSWindow(contentViewController: hostingController)
         window.title = String(localized: "AnyBrief Dashboard")
-        window.appearance = NSAppearance(named: .aqua)
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
@@ -55,6 +54,13 @@ final class DashboardWindowController: NSWindowController, NSWindowDelegate {
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    func applyRuntimeState(_ state: AppState, currentSession: RecordingSession?) {
+        viewModel.applyRuntimeState(state, currentSession: currentSession)
+        Task {
+            await viewModel.refresh()
+        }
     }
 
     func windowWillClose(_ notification: Notification) {

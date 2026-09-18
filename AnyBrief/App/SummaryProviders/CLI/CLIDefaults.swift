@@ -3,6 +3,17 @@ import Foundation
 enum CLIDefaults {
     static let preset = "codex"
     static let apiPreflightTimeoutSec: TimeInterval = 5
+    static func setupGuideURL(preset: String, languageCode: String?) -> URL {
+        let website = languageCode == "ru" ? "https://anybrief.ru" : "https://anybrief.pro"
+        let page: String
+        switch preset {
+        case "codex": page = "codex-cli.html"
+        case "claude": page = "claude-cli.html"
+        default: page = "cli.html"
+        }
+        return URL(string: website)!.appendingPathComponent("help").appendingPathComponent(page)
+    }
+
     static let prompt = """
     Create a concise, structured Markdown meeting summary from the transcript and optional meeting metadata.
 

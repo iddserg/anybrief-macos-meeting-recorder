@@ -112,8 +112,8 @@ struct OllamaSettingsView: View {
             default: OllamaDefaults.chunkSize
         )
 
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 12) {
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 16) {
                 SummaryProviderSettingsControls.labeledField(
                     String(localized: "Local Endpoint"),
                     help: String(localized: "Fixed Ollama chat endpoint on this Mac. Start Ollama before checking or generating summaries."),
@@ -137,7 +137,7 @@ struct OllamaSettingsView: View {
                                 Text(model.name).tag(model.name)
                             }
                         }
-                        .pickerStyle(.menu)
+                        .pickerStyle(.menu).labelsHidden()
                         .frame(width: 220)
                         .onChange(of: configuration.ollamaModel) { _ in
                             viewModel.refreshContextInfo(for: configuration)
@@ -146,6 +146,7 @@ struct OllamaSettingsView: View {
                         Button(viewModel.isLoadingModels ? String(localized: "Refreshing…") : String(localized: "Refresh")) {
                             refreshModels()
                         }
+                        .buttonStyle(WorkspaceButtonStyle())
                         .disabled(viewModel.isLoadingModels)
                     }
                 }
@@ -177,8 +178,8 @@ struct OllamaSettingsView: View {
                         Text("24k").tag(24_000)
                         Text("32k").tag(32_000)
                     }
-                    .pickerStyle(.menu)
-                    .frame(width: 90)
+                    .pickerStyle(.menu).labelsHidden()
+                    .frame(width: WorkspaceDesign.numericFieldWidth)
                 }
                 SummaryProviderSettingsControls.labeledField(
                     String(localized: "Chunk"),
@@ -190,8 +191,8 @@ struct OllamaSettingsView: View {
                         Text("16k").tag(16_000)
                         Text("24k").tag(24_000)
                     }
-                    .pickerStyle(.menu)
-                    .frame(width: 90)
+                    .pickerStyle(.menu).labelsHidden()
+                    .frame(width: WorkspaceDesign.numericFieldWidth)
                 }
             }
             if let statusMessage = viewModel.statusMessage {

@@ -8,7 +8,8 @@ extension AppDelegate {
                 _ = try await recordingAdapter.start(
                     jobId: JobIDGenerator.make(),
                     source: "manual",
-                    title: "Manual recording"
+                    title: "Manual recording",
+                    notifyOnStart: false
                 )
             } catch {
                 await handleRecordingActionError(error, action: "start")

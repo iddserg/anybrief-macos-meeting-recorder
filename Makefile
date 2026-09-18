@@ -40,7 +40,7 @@ LAME_TARBALL = $(FFMPEG_BUILD_DIR)/lame-$(LAME_VERSION).tar.gz
 
 .PHONY: run dev build release-build embed-cli sign-release-app dmg signed-dmg notarize-dmg notarized-dmg clean-dmg archive-existing-signed-dmg \
 	archive-signed-dmg site-version-manifests prepare-site-dmgs archive-published-dmgs deploy-site \
-	kill pull cli cli-recorder cli-stt cli-whisper cli-ffmpeg test-ffmpeg-mp3 verify-universal test-deploy-env
+	kill pull cli cli-recorder cli-stt cli-whisper cli-ffmpeg test-ffmpeg-mp3 verify-universal verify-release test-deploy-env
 
 # Полный цикл: стянуть код + собрать CLIs + собрать app + запустить
 run: pull cli dev
@@ -213,9 +213,13 @@ notarized-dmg: signed-dmg notarize-dmg
 site-version-manifests:
 	@printf '{\n  "version": "$(APP_VERSION)",\n  "build": "$(APP_VERSION)",\n  "downloadURL": "https://anybrief.ru/$(DMG_NAME)",\n  "releaseNotesURL": "https://anybrief.ru/changelog.html"\n}\n' > "$(LANDING_VERSION_MANIFEST)"
 	@printf '{\n  "version": "$(APP_VERSION)",\n  "build": "$(APP_VERSION)",\n  "downloadURL": "https://anybrief.pro/$(DMG_NAME)",\n  "releaseNotesURL": "https://anybrief.pro/changelog.html"\n}\n' > "$(LANDING_EN_VERSION_MANIFEST)"
-	@echo "Updated site version manifests for $(APP_VERSION)"
+	python3 scripts/sync_site_version.py --write
+	@echo "Updated site version manifests and pages for $(APP_VERSION)"
 
-prepare-site-dmgs: archive-signed-dmg site-version-manifests
+verify-release:
+	python3 scripts/verify_release.py --dmg "$(SIGNED_DMG_PATH)" --manifest "$(LANDING_VERSION_MANIFEST)" --manifest "$(LANDING_EN_VERSION_MANIFEST)"
+
+prepare-site-dmgs: verify-release archive-signed-dmg
 	cp "$(SIGNED_DMG_PATH)" "$(LANDING_DMG)"
 	cp "$(SIGNED_DMG_PATH)" "$(LANDING_EN_DMG)"
 	@mkdir -p "$(RELEASE_ARCHIVE_PATH)/published/ru" "$(RELEASE_ARCHIVE_PATH)/published/en"
@@ -253,10 +257,10 @@ archive-published-dmgs: site-version-manifests
 
 deploy-site: site-version-manifests
 	@test -f "$(DEPLOY_ENV)" || (echo "Missing $(DEPLOY_ENV). Copy deploy.example.env to $(DEPLOY_ENV) and fill it in." && exit 1)
-	@test -f "$(DMG_PATH)" || (echo "Missing $(DMG_PATH). Run 'make dmg' first." && exit 1)
+	@test -f "$(SIGNED_DMG_PATH)" || (echo "Missing notarized $(SIGNED_DMG_PATH)" && exit 1)
 	python3 scripts/deploy_site.py deploy \
 		--env-file "$(DEPLOY_ENV)" \
-		--dmg-path "$(DMG_PATH)" \
+		--dmg-path "$(SIGNED_DMG_PATH)" \
 		--landing-dmg "$(LANDING_DMG)" \
 		--landing-index "$(LANDING_DIR)/index.html" \
 		--landing-ai-txt "$(LANDING_DIR)/ai.txt" \
@@ -264,6 +268,20 @@ deploy-site: site-version-manifests
 		--landing-screens-dir "$(LANDING_DIR)/screens" \
 		--site-file "$(LANDING_VERSION_MANIFEST)" \
 		--site-file "$(LANDING_DIR)/changelog.html" \
+		--site-file "$(LANDING_DIR)/feedback.html" \
+		--site-file "$(LANDING_DIR)/help" \
+		--site-file "$(LANDING_DIR)/site-header.css" \
+		--site-file "$(LANDING_DIR)/site-footer.css" \
+		--site-file "$(LANDING_DIR)/hero-carousel.css" \
+		--site-file "$(LANDING_DIR)/hero-carousel.js" \
+		--site-file "$(LANDING_DIR)/seo-pages.css" \
+		--site-file "$(LANDING_DIR)/audio-v-tekst" \
+		--site-file "$(LANDING_DIR)/rasshifrovka-audio-na-mac" \
+		--site-file "$(LANDING_DIR)/whisper-na-mac" \
+		--site-file "$(LANDING_DIR)/protokol-soveshchaniya" \
+		--site-file "$(LANDING_DIR)/rasshifrovka-zvonkov" \
+		--site-file "$(LANDING_DIR)/zapis-lekcii-v-tekst" \
+		--site-file "$(LANDING_DIR)/rasshifrovka-intervyu" \
 		--site-file "$(LANDING_DIR)/sitemap.xml" \
 		--site-file "$(LANDING_DIR)/og.png" \
 		--landing-en-index "$(LANDING_EN_DIR)/index.html" \
@@ -273,6 +291,20 @@ deploy-site: site-version-manifests
 		--landing-en-dmg "$(LANDING_EN_DMG)" \
 		--en-site-file "$(LANDING_EN_VERSION_MANIFEST)" \
 		--en-site-file "$(LANDING_EN_DIR)/changelog.html" \
+		--en-site-file "$(LANDING_EN_DIR)/feedback.html" \
+		--en-site-file "$(LANDING_EN_DIR)/help" \
+		--en-site-file "$(LANDING_EN_DIR)/site-header.css" \
+		--en-site-file "$(LANDING_EN_DIR)/site-footer.css" \
+		--en-site-file "$(LANDING_EN_DIR)/hero-carousel.css" \
+		--en-site-file "$(LANDING_EN_DIR)/hero-carousel.js" \
+		--en-site-file "$(LANDING_EN_DIR)/seo-pages.css" \
+		--en-site-file "$(LANDING_EN_DIR)/audio-to-text" \
+		--en-site-file "$(LANDING_EN_DIR)/local-transcription-mac" \
+		--en-site-file "$(LANDING_EN_DIR)/whisper-for-mac" \
+		--en-site-file "$(LANDING_EN_DIR)/meeting-minutes" \
+		--en-site-file "$(LANDING_EN_DIR)/call-transcription" \
+		--en-site-file "$(LANDING_EN_DIR)/lecture-to-text" \
+		--en-site-file "$(LANDING_EN_DIR)/interview-transcription" \
 		--en-site-file "$(LANDING_EN_DIR)/sitemap.xml" \
 		--en-site-file "$(LANDING_EN_DIR)/og.png"
 
@@ -445,3 +477,7 @@ cli-ffmpeg:
 
 test-ffmpeg-mp3: cli-ffmpeg
 	scripts/test_ffmpeg_mp3_decode.sh $(CLI_DIR)/ffmpeg
+
+.PHONY: test-architecture
+test-architecture:
+	python3 scripts/check_architecture.py

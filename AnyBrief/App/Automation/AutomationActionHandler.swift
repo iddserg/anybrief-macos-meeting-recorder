@@ -49,7 +49,7 @@ actor AutomationActionHandler {
             jobId: JobIDGenerator.make(),
             source: "calendar",
             title: event.title,
-            autoStopAt: event.endAt.addingTimeInterval(TimeInterval(settings.automation.calendarAutopilotSettings.stopGraceSec)),
+            autoStopAt: event.endAt,
             microphonePausedAtStart: settings.automation.calendarAutopilotSettings.muteMicrophone,
             systemSpeakersOverride: systemSpeakersOverride,
             calendarEventUID: event.uid,

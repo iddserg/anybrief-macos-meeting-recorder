@@ -102,7 +102,7 @@ struct ToolbarIconButtonView: View {
 
     private var backgroundColor: Color {
         guard isEnabled else {
-            return Color.black.opacity(0.035)
+            return ABDesign.subtleBackground
         }
         switch role {
         case .plain:

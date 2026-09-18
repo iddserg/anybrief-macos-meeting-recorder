@@ -30,6 +30,14 @@ struct PostProcessingSettings: Codable, Equatable {
 }
 
 struct PostProcessingRuleConfiguration: Codable, Equatable, Identifiable {
+    enum ExportContent: String, Codable, CaseIterable, Identifiable {
+        case summary
+        case transcript
+        case both
+
+        var id: String { rawValue }
+    }
+
     enum MatchMode: String, Codable, CaseIterable, Identifiable {
         case exact
         case contains
@@ -52,6 +60,7 @@ struct PostProcessingRuleConfiguration: Codable, Equatable, Identifiable {
     var matchMode: MatchMode
     var calendarTitlePattern: String
     var destinationFolderPath: String
+    var exportContent: ExportContent
     var filenameTemplate: String
     var conflictBehavior: ConflictBehavior
 
@@ -62,7 +71,8 @@ struct PostProcessingRuleConfiguration: Codable, Equatable, Identifiable {
         matchMode: MatchMode = .contains,
         calendarTitlePattern: String,
         destinationFolderPath: String,
-        filenameTemplate: String = "{date} {calendarTitle} — {topic}.md",
+        exportContent: ExportContent = .summary,
+        filenameTemplate: String = "{date} {calendarTitle} — {type} — {topic}.md",
         conflictBehavior: ConflictBehavior = .skip
     ) {
         self.id = id
@@ -71,6 +81,7 @@ struct PostProcessingRuleConfiguration: Codable, Equatable, Identifiable {
         self.matchMode = matchMode
         self.calendarTitlePattern = calendarTitlePattern
         self.destinationFolderPath = destinationFolderPath
+        self.exportContent = exportContent
         self.filenameTemplate = filenameTemplate
         self.conflictBehavior = conflictBehavior
     }
@@ -83,8 +94,10 @@ struct PostProcessingRuleConfiguration: Codable, Equatable, Identifiable {
         matchMode = try container.decodeIfPresent(MatchMode.self, forKey: .matchMode) ?? .contains
         calendarTitlePattern = try container.decodeIfPresent(String.self, forKey: .calendarTitlePattern) ?? title
         destinationFolderPath = try container.decodeIfPresent(String.self, forKey: .destinationFolderPath) ?? ""
+        // Rules saved before transcript export existed exported summaries only.
+        exportContent = try container.decodeIfPresent(ExportContent.self, forKey: .exportContent) ?? .summary
         filenameTemplate = try container.decodeIfPresent(String.self, forKey: .filenameTemplate)
-            ?? "{date} {calendarTitle} — {topic}.md"
+            ?? "{date} {calendarTitle} — {type} — {topic}.md"
         conflictBehavior = try container.decodeIfPresent(ConflictBehavior.self, forKey: .conflictBehavior) ?? .skip
     }
 }

@@ -4,11 +4,11 @@ import SwiftUI
 struct CalDAVSettingsView: View {
     @ObservedObject var viewModel: DashboardViewModel
     private let compactColumns = [
-        GridItem(.adaptive(minimum: 180), spacing: 10, alignment: .topLeading),
+        GridItem(.adaptive(minimum: 260), spacing: 16, alignment: .topLeading),
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 24) {
             header
             connectionFields
             Divider()
@@ -18,29 +18,14 @@ struct CalDAVSettingsView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
-            Toggle("", isOn: $viewModel.calDAVEnabled)
-                .toggleStyle(.switch)
-                .labelsHidden()
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(String(localized: "CalDAV calendar"))
-                    .font(ABTypography.sectionTitle)
-                    .foregroundStyle(ABDesign.primaryText)
-                Text(viewModel.calDAVEnabled ? String(localized: "Enabled") : String(localized: "Disabled"))
-                    .font(ABTypography.caption)
-                    .foregroundStyle(viewModel.calDAVEnabled ? ABDesign.green : ABDesign.secondaryText)
-            }
-            Spacer(minLength: 8)
-        }
-        .padding(.horizontal, 10)
-        .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
-        .background(Color.black.opacity(0.025))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        WorkspaceSettingsSectionHeader(
+            title: String(localized: "CalDAV calendar"),
+            isOn: $viewModel.calDAVEnabled
+        )
     }
 
     private var connectionFields: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 16) {
             if showsRussianYandexCalendarHelp {
                 yandexCalendarHelpLink
             }
@@ -52,10 +37,10 @@ struct CalDAVSettingsView: View {
                 TextField("https://calendar.example.com", text: $viewModel.caldavURL)
                     .font(ABTypography.field)
                     .textFieldStyle(.roundedBorder)
-                    .controlSize(.large)
+                    .controlSize(.regular)
             }
 
-            LazyVGrid(columns: compactColumns, alignment: .leading, spacing: 8) {
+            LazyVGrid(columns: compactColumns, alignment: .leading, spacing: 16) {
                 labeledField(
                     String(localized: "Username"),
                     help: String(localized: "Usually your calendar account email or provider-specific CalDAV username.")
@@ -63,7 +48,7 @@ struct CalDAVSettingsView: View {
                     TextField("name@example.com", text: $viewModel.caldavUsername)
                         .font(ABTypography.field)
                         .textFieldStyle(.roundedBorder)
-                        .controlSize(.large)
+                        .controlSize(.regular)
                 }
                 labeledField(
                     String(localized: "Password"),
@@ -72,11 +57,11 @@ struct CalDAVSettingsView: View {
                     SecureField("", text: $viewModel.caldavPassword)
                         .font(ABTypography.field)
                         .textFieldStyle(.roundedBorder)
-                        .controlSize(.large)
+                        .controlSize(.regular)
                 }
             }
 
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 16) {
                 labeledField(
                     String(localized: "Connection"),
                     help: String(localized: "Checks credentials and loads available calendars. Select a calendar after a successful check.")
@@ -110,9 +95,9 @@ struct CalDAVSettingsView: View {
                                     .foregroundStyle(ABDesign.green)
                             }
                         }
-                        .frame(maxWidth: .infinity, minHeight: 26)
+                        .frame(minHeight: 26)
                     }
-                    .buttonStyle(.bordered)
+                    .buttonStyle(WorkspaceButtonStyle())
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .disabled(
                         !viewModel.calendarConnectionFieldsReady ||
@@ -158,7 +143,7 @@ struct CalDAVSettingsView: View {
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 7)
-                                .stroke(Color.black.opacity(0.12), lineWidth: 1)
+                                .stroke(ABDesign.badgeBackground, lineWidth: 1)
                         )
                     }
                     .buttonStyle(.plain)
@@ -220,96 +205,50 @@ struct CalDAVSettingsView: View {
     }
 
     private var autopilotFields: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 16) {
             Text(String(localized: "Calendar Autopilot Settings"))
-                .font(ABTypography.sectionTitle)
+                .font(ABTypography.itemTitle)
                 .foregroundStyle(ABDesign.primaryText)
 
-            HStack(spacing: 10) {
-                Toggle("", isOn: $viewModel.calendarAutopilotEnabled)
-                    .toggleStyle(.switch)
-                    .labelsHidden()
+            WorkspaceSettingsSectionHeader(
+                title: String(localized: "Enable autopilot for scheduled calls"),
+                isOn: $viewModel.calendarAutopilotEnabled
+            )
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(String(localized: "Enable autopilot for scheduled calls"))
-                        .font(ABTypography.bodyMedium)
-                        .foregroundStyle(ABDesign.primaryText)
-                    Text(viewModel.calendarAutopilotEnabled ? String(localized: "Enabled") : String(localized: "Disabled"))
-                        .font(ABTypography.caption)
-                        .foregroundStyle(viewModel.calendarAutopilotEnabled ? ABDesign.green : ABDesign.secondaryText)
-                }
-
-                Spacer()
-            }
-            .padding(.horizontal, 10)
-            .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
-            .background(Color.black.opacity(0.025))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 16) {
                 settingsToggleRow(
                     String(localized: "Do not record microphone audio on auto-start"),
                     help: String(localized: "Autopilot will start with microphone paused. System audio is still recorded; you can resume the microphone manually during recording."),
                     isOn: $viewModel.calendarAutopilotMuteMicrophone
                 )
 
-                LazyVGrid(columns: compactColumns, alignment: .leading, spacing: 10) {
-                    labeledField(
-                        String(localized: "Record events"),
-                        help: String(localized: "Filters which calendar events are eligible for autopilot. The default avoids ordinary solo calendar blocks.")
-                    ) {
-                        Picker("", selection: $viewModel.calendarAutopilotFilter) {
-                            Text(String(localized: "Meeting URL or more than 1 participant"))
-                                .tag("meeting_url_or_multiparticipant")
-                            Text(String(localized: "More than 1 participant")).tag("multiparticipant")
-                            Text(String(localized: "Meeting URL only")).tag("meeting_url")
-                            Text(String(localized: "All events")).tag("all")
-                        }
-                        .pickerStyle(.menu)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                labeledField(
+                    String(localized: "Record events"),
+                    help: String(localized: "Filters which calendar events are eligible for autopilot. The default avoids ordinary solo calendar blocks.")
+                ) {
+                    Picker("", selection: $viewModel.calendarAutopilotFilter) {
+                        Text(String(localized: "Meeting URL or more than 1 participant"))
+                            .tag("meeting_url_or_multiparticipant")
+                        Text(String(localized: "More than 1 participant")).tag("multiparticipant")
+                        Text(String(localized: "Meeting URL only")).tag("meeting_url")
+                        Text(String(localized: "All events")).tag("all")
                     }
+                    .pickerStyle(.menu).labelsHidden()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
 
-                    labeledField(
-                        String(localized: "Start before"),
-                        help: String(localized: "How early AnyBrief starts recording before the calendar event start time.")
-                    ) {
-                        Picker("", selection: $viewModel.calendarAutopilotStartLeadSec) {
-                            Text(String(localized: "At start")).tag(0)
-                            Text(String(localized: "30 seconds")).tag(30)
-                            Text(String(localized: "1 minute")).tag(60)
-                            Text(String(localized: "5 minutes")).tag(300)
-                        }
-                        .pickerStyle(.menu)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                labeledField(
+                    String(localized: "Check every"),
+                    help: String(localized: "How often AnyBrief refreshes the calendar schedule. Short intervals react faster but do more background work.")
+                ) {
+                    Picker("", selection: $viewModel.calendarAutopilotPollIntervalSec) {
+                        Text(String(localized: "10 seconds")).tag(10)
+                        Text(String(localized: "30 seconds")).tag(30)
+                        Text(String(localized: "1 minute")).tag(60)
+                        Text(String(localized: "5 minutes")).tag(300)
                     }
-
-                    labeledField(
-                        String(localized: "Stop after"),
-                        help: String(localized: "Grace period after the calendar event end time before auto-stopping the recording.")
-                    ) {
-                        Picker("", selection: $viewModel.calendarAutopilotStopGraceSec) {
-                            Text(String(localized: "At end")).tag(0)
-                            Text(String(localized: "30 seconds")).tag(30)
-                            Text(String(localized: "1 minute")).tag(60)
-                            Text(String(localized: "5 minutes")).tag(300)
-                        }
-                        .pickerStyle(.menu)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-
-                    labeledField(
-                        String(localized: "Check every"),
-                        help: String(localized: "How often AnyBrief refreshes the calendar schedule. Short intervals react faster but do more background work.")
-                    ) {
-                        Picker("", selection: $viewModel.calendarAutopilotPollIntervalSec) {
-                            Text(String(localized: "10 seconds")).tag(10)
-                            Text(String(localized: "30 seconds")).tag(30)
-                            Text(String(localized: "1 minute")).tag(60)
-                            Text(String(localized: "5 minutes")).tag(300)
-                        }
-                        .pickerStyle(.menu)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
+                    .pickerStyle(.menu).labelsHidden()
+                    .frame(maxWidth: 320, alignment: .leading)
                 }
             }
             .disabled(!viewModel.calendarAutopilotEnabled)
@@ -340,18 +279,7 @@ struct CalDAVSettingsView: View {
         help: String? = nil,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 5) {
-                Text(label)
-                    .font(ABTypography.bodySemibold)
-                    .foregroundStyle(ABDesign.primaryText)
-                if let help {
-                    HelpTooltipIcon(text: help)
-                }
-            }
-            content()
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        WorkspaceFormField(title: label, help: help, fillWidth: true, content: content)
     }
 
     private func settingsToggleRow(_ title: String, help: String? = nil, isOn: Binding<Bool>) -> some View {

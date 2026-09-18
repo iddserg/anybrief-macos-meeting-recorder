@@ -4,47 +4,37 @@ import SwiftUI
 
 struct AutopilotDayScheduleView: View {
     let events: [DashboardViewModel.AutopilotScheduleEvent]
+    let onSetAutopilotEnabled: (Bool, DashboardViewModel.AutopilotScheduleEvent) -> Void
+    var onStartRecording: ((DashboardViewModel.AutopilotScheduleEvent) -> Void)? = nil
+    var canStartRecording: (DashboardViewModel.AutopilotScheduleEvent) -> Bool = { _ in false }
+    var recordingError: String? = nil
+    var scheduleError: String? = nil
     @State private var now = Date()
     private let timer = Timer.publish(every: 60, on: .main, in: .common).autoconnect()
     private static let scheduleRowHeight: CGFloat = 54
-    private static let scheduleRowSpacing: CGFloat = 6
+    private static let scheduleRowSpacing: CGFloat = 4
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline, spacing: 14) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(Self.dayFormatter.string(from: now))
-                        .font(ABTypography.pageTitle)
-                        .foregroundStyle(ABDesign.primaryText)
-                    Text(Self.weekdayFormatter.string(from: now))
-                        .font(ABTypography.body)
-                        .foregroundStyle(ABDesign.secondaryText)
-                }
-
-                Spacer()
-
-                Label(Self.timeFormatter.string(from: now), systemImage: "clock")
-                    .font(ABTypography.bodySemibold)
+        VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(Self.dayFormatter.string(from: now))
+                    .font(ABTypography.pageTitle)
                     .foregroundStyle(ABDesign.primaryText)
-                    .padding(.horizontal, 12)
-                    .frame(height: 32)
-                    .background(
-                        Capsule()
-                            .fill(Color.black.opacity(0.04))
-                    )
+                Text(Self.weekdayFormatter.string(from: now))
+                    .font(ABTypography.body)
+                    .foregroundStyle(ABDesign.secondaryText)
             }
 
-            Text("All day", comment: "Calendar all-day row label")
-                .font(ABTypography.captionSemibold)
-                .foregroundStyle(ABDesign.secondaryText)
-                .textCase(.uppercase)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, 4)
-                .overlay(alignment: .bottom) {
-                    Rectangle()
-                        .fill(ABDesign.hairline)
-                        .frame(height: 1)
-                }
+            if let scheduleError {
+                Label(scheduleError, systemImage: "exclamationmark.triangle")
+                    .font(ABTypography.caption)
+                    .foregroundStyle(ABDesign.red)
+            }
+
+            if let recordingError {
+                Label(recordingError, systemImage: "exclamationmark.triangle")
+                    .font(ABTypography.caption).foregroundStyle(ABDesign.red)
+            }
 
             if todayEvents.isEmpty {
                 VStack(spacing: 8) {
@@ -84,11 +74,10 @@ struct AutopilotDayScheduleView: View {
     private func scheduleRow(_ event: DashboardViewModel.AutopilotScheduleEvent) -> some View {
         let isCurrent = now >= event.startAt && now <= event.endAt
         let isPast = now > event.endAt
-        let isFuture = now < event.startAt
         let accentColor = isCurrent ? ABDesign.accent : (isPast ? ABDesign.secondaryText.opacity(0.45) : Color(red: 0.40, green: 0.55, blue: 0.70))
         let backgroundColor = isCurrent
             ? ABDesign.accent.opacity(0.10)
-            : (isPast ? Color.black.opacity(0.025) : Color(red: 0.88, green: 0.91, blue: 0.95).opacity(0.55))
+            : Color.clear
 
         return HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .trailing, spacing: 0) {
@@ -110,29 +99,15 @@ struct AutopilotDayScheduleView: View {
                     Text(event.title)
                         .font(ABTypography.bodySemibold)
                         .foregroundStyle(isPast ? ABDesign.secondaryText : ABDesign.primaryText)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                    if isCurrent {
-                        Text("Now", comment: "Current calendar event badge")
-                            .font(ABTypography.captionSemibold)
-                            .foregroundStyle(ABDesign.accent)
-                    } else if isPast {
-                        Text("Done", comment: "Past calendar event badge")
+                        .lineLimit(2)
+                    if !event.autopilotEnabled {
+                        Text("Skipped", comment: "Calendar event excluded from Autopilot badge")
                             .font(ABTypography.captionSemibold)
                             .foregroundStyle(ABDesign.secondaryText)
-                    } else if isFuture {
-                        Text("Upcoming", comment: "Future calendar event badge")
-                            .font(ABTypography.captionSemibold)
-                            .foregroundStyle(Color(red: 0.40, green: 0.55, blue: 0.70))
                     }
                 }
 
-                HStack(spacing: 6) {
-                    Text(Self.participantCountText(event.participantCount))
-                    if event.hasMeetingURL {
-                        Image(systemName: "link")
-                    }
-                }
+                Text(Self.participantCountText(event.participantCount))
                 .font(ABTypography.caption)
                 .foregroundStyle(ABDesign.secondaryText)
                 .lineLimit(1)
@@ -140,19 +115,46 @@ struct AutopilotDayScheduleView: View {
 
             Spacer(minLength: 0)
 
-            if let meetingURL = event.meetingURL {
-                Button {
-                    NSWorkspace.shared.open(meetingURL)
-                } label: {
-                    Text("Join", comment: "Join meeting button in Autopilot day schedule")
-                        .font(ABTypography.captionSemibold)
+            VStack(alignment: .trailing, spacing: 6) {
+                Toggle(
+                    String(localized: "Autopilot"),
+                    isOn: Binding(
+                        get: { event.autopilotEnabled },
+                        set: { onSetAutopilotEnabled($0, event) }
+                    )
+                )
+                .font(ABTypography.caption)
+                .foregroundStyle(ABDesign.secondaryText)
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .help(event.isRecurring
+                    ? String(localized: "Enable or disable Autopilot for the entire recurring series")
+                    : String(localized: "Enable or disable Autopilot for this meeting"))
+
+                HStack(spacing: 8) {
+                    if let onStartRecording {
+                        Button { onStartRecording(event) } label: {
+                            Label("Start recording", systemImage: "record.circle")
+                                .font(ABTypography.captionSemibold)
+                        }
+                        .buttonStyle(.bordered).controlSize(.small)
+                        .disabled(!canStartRecording(event))
+                        .accessibilityIdentifier("calendar.record.\(event.id)")
+                    }
+                    if let meetingURL = event.meetingURL {
+                        Button { NSWorkspace.shared.open(meetingURL) } label: {
+                            Text("Join", comment: "Join meeting button in Autopilot day schedule")
+                                .font(ABTypography.captionSemibold)
+                        }
+                        .buttonStyle(.bordered).controlSize(.small)
+                    }
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
+                .fixedSize()
             }
         }
         .padding(.horizontal, 12)
-        .frame(height: Self.scheduleRowHeight)
+        .padding(.vertical, 6)
+        .frame(minHeight: Self.scheduleRowHeight)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 8)

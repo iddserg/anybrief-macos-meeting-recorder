@@ -48,6 +48,8 @@ struct OpencodePermissions: Codable, Equatable {
 struct CLIConfig: Codable, Equatable {
     var commandPreset = CLIDefaults.preset
     var commandLine = ""
+    /// Empty uses the current Codex CLI default. Otherwise passed verbatim to `codex exec --model`.
+    var codexModel = ""
     /// codex `--sandbox` mode: "read-only" (default), "workspace-write", or "danger-full-access".
     var codexSandboxMode = "read-only"
     /// Prevent Codex from loading user plugins, MCP servers, and other user configuration.
@@ -61,6 +63,7 @@ struct CLIConfig: Codable, Equatable {
     init(
         commandPreset: String = CLIDefaults.preset,
         commandLine: String = "",
+        codexModel: String = "",
         codexSandboxMode: String = "read-only",
         codexIgnoreUserConfig: Bool = true,
         apiPreflightEnabled: Bool = true,
@@ -69,6 +72,7 @@ struct CLIConfig: Codable, Equatable {
     ) {
         self.commandPreset = commandPreset
         self.commandLine = commandLine
+        self.codexModel = codexModel
         self.codexSandboxMode = codexSandboxMode
         self.codexIgnoreUserConfig = codexIgnoreUserConfig
         self.apiPreflightEnabled = apiPreflightEnabled
@@ -79,6 +83,7 @@ struct CLIConfig: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case commandPreset
         case commandLine
+        case codexModel
         case codexSandboxMode
         case codexIgnoreUserConfig
         case apiPreflightEnabled
@@ -90,6 +95,7 @@ struct CLIConfig: Codable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         commandPreset = try container.decodeIfPresent(String.self, forKey: .commandPreset) ?? CLIDefaults.preset
         commandLine = try container.decodeIfPresent(String.self, forKey: .commandLine) ?? ""
+        codexModel = try container.decodeIfPresent(String.self, forKey: .codexModel) ?? ""
         codexSandboxMode = try container.decodeIfPresent(String.self, forKey: .codexSandboxMode) ?? "read-only"
         codexIgnoreUserConfig = try container.decodeIfPresent(Bool.self, forKey: .codexIgnoreUserConfig) ?? true
         apiPreflightEnabled = try container.decodeIfPresent(Bool.self, forKey: .apiPreflightEnabled) ?? true
@@ -124,7 +130,7 @@ extension SummaryProviderConfiguration {
     }
 
     var cliEffectiveModel: String {
-        ""
+        cliCommandPreset == "codex" ? cliCodexModel : ""
     }
 
     var cliCommandPreset: String {
@@ -141,6 +147,15 @@ extension SummaryProviderConfiguration {
         set {
             var config = cliConfig
             config.commandLine = newValue
+            cliConfig = config
+        }
+    }
+
+    var cliCodexModel: String {
+        get { cliConfig.codexModel }
+        set {
+            var config = cliConfig
+            config.codexModel = newValue
             cliConfig = config
         }
     }

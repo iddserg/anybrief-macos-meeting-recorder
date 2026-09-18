@@ -2,6 +2,9 @@ import Foundation
 import SwiftUI
 
 struct OpenAICompatibleModule: SummaryProviderModule {
+    var settingsPayloadCodec: ModuleSettingsPayloadCodec {
+        ModuleSettingsPayloadCodec(OpenAICompatibleConfig.self, includesEnabled: false, secrets: [ConfigurationSecretField(valuePath: ["apiKey"], referencePath: ["apiKeyKeychainRef"])])
+    }
     let id: SummaryProvider = .openAICompatible
     let title = "OpenAI-compatible"
     let systemImage = "network"

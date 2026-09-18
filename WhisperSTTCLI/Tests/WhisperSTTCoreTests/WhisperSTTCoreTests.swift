@@ -2,6 +2,42 @@ import XCTest
 @testable import WhisperSTTCore
 
 final class WhisperSTTCoreTests: XCTestCase {
+    func testDiarizationNoSpeechIsEmptySuccessAndDoesNotRunWhisper() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let input = directory.appendingPathComponent("system.wav")
+        let model = directory.appendingPathComponent("model.bin")
+        let stt = directory.appendingPathComponent("stt")
+        let combined = directory.appendingPathComponent("system_combined.txt")
+        try Data().write(to: input)
+        try Data().write(to: model)
+        var options = WhisperSTTOptions(inputFile: input.path, model: model.path)
+        options.outputDirectory = directory.path
+        options.sttPath = stt.path
+        // A no-speech result must return before attempting to resolve this executable.
+        options.whisperCorePath = directory.appendingPathComponent("missing-whisper-core").path
+        for (message, status, expectsEmpty) in [
+            ("❌ Error: No speech detected in audio", 1, true),
+            ("Error: model missing", 1, false),
+            ("", 1, false),
+            ("❌ Error: No speech detected in audio", 2, false),
+        ] {
+            try "❌ Error: No speech detected in audio\n".write(
+                to: directory.appendingPathComponent("system_whisper-stt.log"), atomically: true, encoding: .utf8)
+            try "stale speech".write(to: combined, atomically: true, encoding: .utf8)
+            try "#!/bin/sh\nprintf '%s\\n' '\(message)'\nexit \(status)\n".write(to: stt, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: stt.path)
+            if expectsEmpty {
+                try WhisperSTTRunner().run(options: options, ownExecutableURL: directory.appendingPathComponent("whisper-stt"))
+                XCTAssertEqual(try String(contentsOf: combined, encoding: .utf8), "")
+                XCTAssertEqual(try String(contentsOf: directory.appendingPathComponent("system_transcript.txt"), encoding: .utf8), "")
+            } else {
+                XCTAssertThrowsError(try WhisperSTTRunner().run(options: options, ownExecutableURL: directory.appendingPathComponent("whisper-stt")))
+            }
+        }
+    }
+
     func testUsesDefaultDiarizationThreshold() throws {
         let options = try XCTUnwrap(WhisperSTTArguments.parse([
             "/tmp/meeting.wav",

@@ -7,6 +7,9 @@ struct AudioLevelMetersView: View {
     let microphoneDevices: [MicrophoneDevice]
     let selectedMicrophoneDeviceUID: String
     let onSelectMicrophone: (String) -> Void
+    let systemAudioApplications: [SystemAudioApplication]
+    let selectedSystemAudioApplicationBundleIdentifier: String
+    let onSelectSystemAudioApplication: (String) -> Void
 
     private var levels: AudioLevelSnapshot {
         store.levels
@@ -20,7 +23,10 @@ struct AudioLevelMetersView: View {
                 detail: nil,
                 systemImage: "speaker.wave.2",
                 level: levels.system,
-                color: ABDesign.accent
+                color: ABDesign.accent,
+                systemAudioApplications: systemAudioApplications,
+                selectedSystemAudioApplicationBundleIdentifier: selectedSystemAudioApplicationBundleIdentifier,
+                onSelectSystemAudioApplication: onSelectSystemAudioApplication
             )
 
             if !microphonePaused {
@@ -62,6 +68,9 @@ struct AudioLevelMeterRow: View {
     var microphoneDevices: [MicrophoneDevice] = []
     var selectedMicrophoneDeviceUID: String?
     var onSelectMicrophone: ((String) -> Void)?
+    var systemAudioApplications: [SystemAudioApplication] = []
+    var selectedSystemAudioApplicationBundleIdentifier: String?
+    var onSelectSystemAudioApplication: ((String) -> Void)?
 
     private let barCount = 12
 
@@ -74,13 +83,38 @@ struct AudioLevelMeterRow: View {
                 .gridColumnAlignment(.center)
 
             VStack(alignment: .leading, spacing: 3) {
-                if let onSelectMicrophone {
+                if let onSelectSystemAudioApplication {
                     HStack(spacing: 8) {
-                        Text(title)
-                            .font(ABTypography.bodyMedium)
-                            .foregroundStyle(ABDesign.primaryText)
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
+                        rowTitle
+                        Picker(
+                            "",
+                            selection: Binding(
+                                get: { selectedSystemAudioApplicationBundleIdentifier ?? "" },
+                                set: onSelectSystemAudioApplication
+                            )
+                        ) {
+                            Text(String(localized: "All system audio")).tag("")
+                            ForEach(systemAudioApplications) { application in
+                                Text(application.name).tag(application.bundleIdentifier)
+                            }
+                            if let selectedSystemAudioApplicationBundleIdentifier,
+                               !selectedSystemAudioApplicationBundleIdentifier.isEmpty,
+                               !systemAudioApplications.contains(where: {
+                                   $0.bundleIdentifier == selectedSystemAudioApplicationBundleIdentifier
+                               }) {
+                                Text(String(localized: "Unavailable application"))
+                                    .tag(selectedSystemAudioApplicationBundleIdentifier)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .frame(width: 235)
+                    }
+
+                    sourceSubtitle
+                } else if let onSelectMicrophone {
+                    HStack(spacing: 8) {
+                        rowTitle
 
                         Picker(
                             "",
@@ -107,11 +141,7 @@ struct AudioLevelMeterRow: View {
                         .frame(width: 235)
                     }
 
-                    Text(displaySubtitle)
-                        .font(ABTypography.caption)
-                        .foregroundStyle(ABDesign.secondaryText)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
+                    sourceSubtitle
                 } else {
                     Text(title)
                         .font(ABTypography.bodyMedium)
@@ -141,9 +171,27 @@ struct AudioLevelMeterRow: View {
             Text(level > 0.04 ? String(localized: "Signal") : String(localized: "Silent"))
                 .font(ABTypography.caption)
                 .foregroundStyle(ABDesign.secondaryText)
-                .frame(width: 96, alignment: .leading)
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(width: WorkspaceDesign.audioStatusWidth, alignment: .leading)
                 .gridColumnAlignment(.leading)
         }
+    }
+
+    private var rowTitle: some View {
+        Text(title)
+            .font(ABTypography.bodyMedium)
+            .foregroundStyle(ABDesign.primaryText)
+            .lineLimit(1)
+            .fixedSize(horizontal: true, vertical: false)
+    }
+
+    private var sourceSubtitle: some View {
+        Text(displaySubtitle)
+            .font(ABTypography.caption)
+            .foregroundStyle(ABDesign.secondaryText)
+            .lineLimit(1)
+            .truncationMode(.middle)
     }
 
     private var systemInputTitle: String {

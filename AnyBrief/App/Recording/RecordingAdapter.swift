@@ -9,15 +9,21 @@ actor RecordingAdapter {
     private let loggingService: LoggingService
     private let appStateDidChange: @Sendable (AppState) async -> Void
     private let notificationService: NotificationService?
+    private let callStatisticsService: CallStatisticsService?
     private let recorderFactory: (MeetingPaths, AppSettings) throws -> AudioRecording
     private let watchdogPollInterval: TimeInterval
+    private let audioDeviceRouteDebounceInterval: TimeInterval
     private let watchdogHungInterval: TimeInterval
+    private let microphoneWatchdogHungInterval: TimeInterval
     private let sleep: @Sendable (UInt64) async -> Void
+    private let systemAudioSilenceWarningInterval: TimeInterval
+    private let fileManager: FileManager
 
     private(set) var activeSession: RecordingSession?
     private var activeRecorder: AudioRecording?
     private var isStarting = false
     private var recorderWatchdogTask: Task<Void, Never>?
+    private var audioDeviceRouteDebounceTask: Task<Void, Never>?
     private var preEndNotificationTask: Task<Void, Never>?
     private let minimumComparableTrackDuration: TimeInterval = 120
     private let minimumMicToSystemDurationRatio = 0.8
@@ -28,6 +34,11 @@ actor RecordingAdapter {
     private let systemAudioUnexpectedRestartWindow: TimeInterval = 300
     private var systemAudioUnexpectedRestartAttempts: [Date] = []
     private var didNotifySystemAudioFailure = false
+    private var microphoneSelectionInProgress = false
+    private var explicitlySelectedMicrophoneDescription: String?
+    private var microphoneRestartGeneration = 0
+    private var lastObservedInputDevice: String?
+    private var lastObservedOutputDevice: String?
 
     init(
         storageService: StorageServiceProtocol,
@@ -36,11 +47,14 @@ actor RecordingAdapter {
         loggingService: LoggingService,
         appStateDidChange: @escaping @Sendable (AppState) async -> Void,
         notificationService: NotificationService? = nil,
+        callStatisticsService: CallStatisticsService? = nil,
         recorderURLResolver: (() throws -> URL)? = nil,
         recorderFactory: ((MeetingPaths) throws -> AudioRecording)? = nil,
         fileManager: FileManager = .default,
         watchdogPollInterval: TimeInterval = 60,
+        audioDeviceRouteDebounceInterval: TimeInterval = 0.35,
         watchdogHungInterval: TimeInterval = 300,
+        systemAudioSilenceWarningInterval: TimeInterval = 60,
         watchdogKillGracePeriod: TimeInterval = 5,
         sleep: @escaping @Sendable (UInt64) async -> Void = { value in
             try? await Task.sleep(nanoseconds: value)
@@ -52,6 +66,7 @@ actor RecordingAdapter {
         self.loggingService = loggingService
         self.appStateDidChange = appStateDidChange
         self.notificationService = notificationService
+        self.callStatisticsService = callStatisticsService
         self.recorderFactory = { paths, settings in
             if let recorderFactory {
                 return try recorderFactory(paths)
@@ -70,14 +85,38 @@ actor RecordingAdapter {
                 micURL: paths.micWavURL,
                 systemURL: paths.systemWavURL,
                 microphoneVoiceProcessingEnabled: settings.recording.microphoneVoiceProcessingEnabled,
-                microphoneDeviceUID: settings.recording.microphoneDeviceUID
+                microphoneDeviceUID: settings.recording.microphoneDeviceUID,
+                systemAudioApplicationBundleIdentifier: settings.recording.systemAudioApplicationBundleIdentifier
             )
         }
-        _ = fileManager
+        self.fileManager = fileManager
         _ = watchdogKillGracePeriod
         self.watchdogPollInterval = watchdogPollInterval
+        self.audioDeviceRouteDebounceInterval = audioDeviceRouteDebounceInterval
         self.watchdogHungInterval = watchdogHungInterval
+        // A live AVAudioEngine tap writes frames even when the room is silent.
+        // If only microphone frames stop, waiting for the general five-minute
+        // recorder watchdog needlessly loses several minutes of speech. Allow
+        // two normal heartbeat polls for transient device-route changes.
+        microphoneWatchdogHungInterval = min(
+            watchdogHungInterval,
+            max(90, watchdogPollInterval * 2)
+        )
+        self.systemAudioSilenceWarningInterval = systemAudioSilenceWarningInterval
         self.sleep = sleep
+    }
+
+    /// A manual start keeps calendar context but does not obey scheduled stop
+    /// times: the selected event may already have ended or been moved.
+    func startManually(calendarEvent: CalendarEvent) async throws -> RecordingSession {
+        let settings = await appSettingsStore.load(using: loggingService)
+        let configuration = settings.transcription.activeProviderConfiguration
+        let metadata = try? TranscriptionProviderRegistry.default.module(for: configuration.provider)
+            .metadata(configuration: configuration, diarizationEnabled: settings.transcription.diarizationEnabled)
+        let speakerLimit = metadata?.speakersMode == "calendar" ? max(1, min(10, calendarEvent.participantCount - 1)) : nil
+        return try await start(jobId: JobIDGenerator.make(), source: "manual", title: calendarEvent.title,
+            systemSpeakersOverride: speakerLimit, calendarEventUID: calendarEvent.uid,
+            calendarEvent: calendarEvent, notifyOnStart: false)
     }
 
     func start(
@@ -88,7 +127,8 @@ actor RecordingAdapter {
         microphonePausedAtStart: Bool = false,
         systemSpeakersOverride: Int? = nil,
         calendarEventUID: String? = nil,
-        calendarEvent: CalendarEvent? = nil
+        calendarEvent: CalendarEvent? = nil,
+        notifyOnStart: Bool = true
     ) async throws -> RecordingSession {
         guard activeSession == nil, !isStarting else {
             throw RecordingAlreadyActiveError()
@@ -106,12 +146,37 @@ actor RecordingAdapter {
         let recorder = try recorderFactory(paths, settings)
         systemAudioUnexpectedRestartAttempts = []
         didNotifySystemAudioFailure = false
+        microphoneSelectionInProgress = false
+        explicitlySelectedMicrophoneDescription = nil
         recorder.setSystemAudioInterruptionHandler { [weak self] reason in
             Task {
                 await self?.handleSystemAudioStreamStopped(jobId: jobId, reason: reason)
             }
         }
-        try await recorder.start()
+        recorder.setSystemAudioSourceEventHandler { [weak self] event in
+            Task {
+                await self?.logSystemAudioSourceEvent(event, jobId: jobId)
+            }
+        }
+        do {
+            try await recorder.start()
+        } catch {
+            try? await recorder.stop()
+            recorder.setAudioDeviceRouteChangeHandler(nil)
+            recorder.setSystemAudioInterruptionHandler(nil)
+            recorder.setSystemAudioSourceEventHandler(nil)
+            if fileManager.fileExists(atPath: paths.folderURL.path) {
+                try? fileManager.removeItem(at: paths.folderURL)
+            }
+            await appStateDidChange(.idle)
+            let nsError = error as NSError
+            await loggingService.log(
+                "Recorder start failed for job \(jobId): domain=\(nsError.domain), code=\(nsError.code), inputDevice=\(recorder.microphoneDiagnosticDescription()), error=\(error.localizedDescription)",
+                level: .error,
+                component: "Recording"
+            )
+            throw RecordingStartupError(underlying: error)
+        }
         let recorderReadyAt = Date()
         if microphonePausedAtStart {
             try recorder.setMicrophonePaused(true)
@@ -139,6 +204,13 @@ actor RecordingAdapter {
         )
         activeRecorder = recorder
         activeSession = session
+        lastObservedInputDevice = recorder.microphoneDiagnosticDescription()
+        lastObservedOutputDevice = recorder.systemOutputDiagnosticDescription()
+        recorder.setAudioDeviceRouteChangeHandler { [weak self] in
+            Task {
+                await self?.scheduleAudioDeviceRouteRefresh(jobId: jobId)
+            }
+        }
 
         // Diagnostic-only output monitor. With the embedded recorder, long
         // silent periods are legitimate, so lack of file growth must not stop
@@ -168,7 +240,7 @@ actor RecordingAdapter {
         await logRecordingDiagnostics("Recording started", for: session, activity: recorder.outputActivity())
         await appStateDidChange(.recording)
         schedulePreEndWarning(for: session)
-        if let notificationService {
+        if notifyOnStart, let notificationService {
             await notificationService.notifyRecordingStarted()
         }
         return session
@@ -182,15 +254,19 @@ actor RecordingAdapter {
 
         recorderWatchdogTask?.cancel()
         recorderWatchdogTask = nil
+        audioDeviceRouteDebounceTask?.cancel()
+        audioDeviceRouteDebounceTask = nil
         preEndNotificationTask?.cancel()
         preEndNotificationTask = nil
+        recorder.setAudioDeviceRouteChangeHandler(nil)
         recorder.setSystemAudioInterruptionHandler(nil)
+        recorder.setSystemAudioSourceEventHandler(nil)
 
         let stopError: Error?
         do {
             try await stopRecorder(recorder, for: session)
-            try validateOutputs(for: finishedSession)
-            let warnings = systemAudioQualityWarnings(for: finishedSession)
+            let warnings = try validateOutputs(for: finishedSession)
+                + systemAudioQualityWarnings(for: finishedSession)
             if !warnings.isEmpty {
                 finishedSession = finishedSession.withRecordingWarnings(warnings)
                 for warning in warnings {
@@ -204,7 +280,18 @@ actor RecordingAdapter {
             stopError = nil
         } catch let error as RecorderAlreadyStoppedError {
             do {
-                try validateOutputs(for: finishedSession)
+                let warnings = try validateOutputs(for: finishedSession)
+                    + systemAudioQualityWarnings(for: finishedSession)
+                if !warnings.isEmpty {
+                    finishedSession = finishedSession.withRecordingWarnings(warnings)
+                    for warning in warnings {
+                        await loggingService.log(
+                            "Recording quality warning for job \(finishedSession.jobId): \(warning)",
+                            level: .warn,
+                            component: "Recording"
+                        )
+                    }
+                }
                 await loggingService.log(
                     "Recorder for job \(finishedSession.jobId) had already stopped before the stop request: \(error.localizedDescription)",
                     level: .warn,
@@ -222,6 +309,10 @@ actor RecordingAdapter {
         activeRecorder = nil
         systemAudioUnexpectedRestartAttempts = []
         didNotifySystemAudioFailure = false
+        microphoneSelectionInProgress = false
+        explicitlySelectedMicrophoneDescription = nil
+        lastObservedInputDevice = nil
+        lastObservedOutputDevice = nil
 
         if let stopError {
             let failedJob = await updatedJob(
@@ -242,6 +333,21 @@ actor RecordingAdapter {
 
         let recordedJob = await updatedJob(from: finishedSession, status: "recorded", stage: .recorded)
         await jobRepository.upsert(recordedJob)
+        if let callStatisticsService {
+            do {
+                try await callStatisticsService.recordCall(
+                    jobID: finishedSession.jobId,
+                    startedAt: finishedSession.startedAt,
+                    duration: Date().timeIntervalSince(finishedSession.startedAt)
+                )
+            } catch {
+                await loggingService.log(
+                    "Failed to update call statistics for job \(finishedSession.jobId): \(error.localizedDescription)",
+                    level: .warn,
+                    component: "Statistics"
+                )
+            }
+        }
         if let notificationService {
             await notificationService.notifyRecordingStopped()
         }
@@ -255,27 +361,11 @@ actor RecordingAdapter {
         calendarEvent: CalendarEvent?,
         to folderURL: URL
     ) throws {
-        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedTitle.isEmpty {
-            try trimmedTitle.write(
-                to: folderURL.appendingPathComponent(".anybrief-title", isDirectory: false),
-                atomically: true,
-                encoding: .utf8
-            )
-        }
-
-        let metadata = AutopilotRecordingMetadata(
-            calendarEventUID: calendarEventUID,
-            systemSpeakersOverride: systemSpeakersOverride,
-            calendarEvent: calendarEvent
-        )
-        guard metadata.calendarEventUID != nil || metadata.systemSpeakersOverride != nil || metadata.calendarEvent != nil else {
-            return
-        }
-        let data = try JSONEncoder().encode(metadata)
-        try data.write(
-            to: folderURL.appendingPathComponent(".anybrief-autopilot.json", isDirectory: false),
-            options: .atomic
+        try MeetingMetadataStore.write(
+            title: title,
+            metadata: AutopilotRecordingMetadata(calendarEventUID: calendarEventUID,
+                systemSpeakersOverride: systemSpeakersOverride, calendarEvent: calendarEvent),
+            to: folderURL
         )
     }
 
@@ -306,6 +396,7 @@ actor RecordingAdapter {
             return
         }
         try activeRecorder.setMicrophoneVoiceProcessingEnabled(enabled)
+        microphoneRestartGeneration += 1
         await loggingService.log(
             "Applied microphone voice processing setting to active recorder: enabled=\(enabled), inputDevice=\(activeRecorder.microphoneDiagnosticDescription())",
             level: .info,
@@ -314,12 +405,39 @@ actor RecordingAdapter {
     }
 
     func setMicrophoneDeviceUID(_ uid: String?) async throws {
+        guard let activeRecorder, let activeSession else {
+            return
+        }
+        microphoneSelectionInProgress = true
+        explicitlySelectedMicrophoneDescription = nil
+        do {
+            try await activeRecorder.setMicrophoneDeviceUID(uid)
+            microphoneRestartGeneration += 1
+            explicitlySelectedMicrophoneDescription = activeRecorder.microphoneDiagnosticDescription()
+            lastObservedInputDevice = explicitlySelectedMicrophoneDescription
+            microphoneSelectionInProgress = false
+        } catch {
+            microphoneSelectionInProgress = false
+            throw error
+        }
+        await loggingService.log(
+            "Applied microphone selection to active recorder: requestedUID=\(uid ?? "system"), inputDevice=\(activeRecorder.microphoneDiagnosticDescription())",
+            level: .info,
+            component: "Recording"
+        )
+        await restartSystemAudioCapture(
+            for: activeSession,
+            reason: "microphone selection changed to \(lastObservedInputDevice ?? "unknown")"
+        )
+    }
+
+    func setSystemAudioApplicationBundleIdentifier(_ bundleIdentifier: String?) async throws {
         guard let activeRecorder else {
             return
         }
-        try activeRecorder.setMicrophoneDeviceUID(uid)
+        try await activeRecorder.setSystemAudioApplicationBundleIdentifier(bundleIdentifier)
         await loggingService.log(
-            "Applied microphone selection to active recorder: requestedUID=\(uid ?? "system"), inputDevice=\(activeRecorder.microphoneDiagnosticDescription())",
+            "Applied system audio source to active recorder: \(bundleIdentifier ?? "all system audio").",
             level: .info,
             component: "Recording"
         )
@@ -360,9 +478,13 @@ actor RecordingAdapter {
 
         recorderWatchdogTask?.cancel()
         recorderWatchdogTask = nil
+        audioDeviceRouteDebounceTask?.cancel()
+        audioDeviceRouteDebounceTask = nil
         preEndNotificationTask?.cancel()
         preEndNotificationTask = nil
+        recorder.setAudioDeviceRouteChangeHandler(nil)
         recorder.setSystemAudioInterruptionHandler(nil)
+        recorder.setSystemAudioSourceEventHandler(nil)
 
         try? await recorder.stop()
 
@@ -370,6 +492,10 @@ actor RecordingAdapter {
         activeRecorder = nil
         systemAudioUnexpectedRestartAttempts = []
         didNotifySystemAudioFailure = false
+        microphoneSelectionInProgress = false
+        explicitlySelectedMicrophoneDescription = nil
+        lastObservedInputDevice = nil
+        lastObservedOutputDevice = nil
 
         try? storageService.cleanupTemporaryArtifacts(for: session.paths)
 
@@ -423,7 +549,7 @@ actor RecordingAdapter {
         await logRecordingDiagnostics("Recorder stopped", for: session, activity: recorder.outputActivity())
     }
 
-    private func validateOutputs(for session: RecordingSession) throws {
+    private func validateOutputs(for session: RecordingSession) throws -> [String] {
         let urls = [session.paths.systemWavURL, session.paths.micWavURL]
 
         for url in urls {
@@ -442,12 +568,82 @@ actor RecordingAdapter {
               systemDuration >= minimumComparableTrackDuration,
               micDuration < systemDuration * minimumMicToSystemDurationRatio
         else {
+            return []
+        }
+
+        try MeetingMetadataStore.setSkipsMicrophone(true, in: session.paths.folderURL)
+        return [
+            "microphone_degraded: microphone recording is much shorter than system audio (mic \(Int(micDuration.rounded()))s, system \(Int(systemDuration.rounded()))s). Microphone transcription will be skipped; its audio is preserved."
+        ]
+    }
+
+    private func scheduleAudioDeviceRouteRefresh(jobId: String) {
+        audioDeviceRouteDebounceTask?.cancel()
+        let delayNanoseconds = UInt64(audioDeviceRouteDebounceInterval * 1_000_000_000)
+        audioDeviceRouteDebounceTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: delayNanoseconds)
+            guard !Task.isCancelled else {
+                return
+            }
+            await self?.handleAudioDeviceRouteChange(jobId: jobId)
+        }
+    }
+
+    private func handleAudioDeviceRouteChange(jobId: String) async {
+        guard let currentSession = activeSession,
+              currentSession.jobId == jobId,
+              let activeRecorder else {
             return
         }
 
-        throw RecordingOutputInvalidError(
-            message: "Microphone recording is much shorter than system audio (mic \(Int(micDuration.rounded()))s, system \(Int(systemDuration.rounded()))s). Check microphone capture before processing."
-        )
+        let currentInputDevice = activeRecorder.microphoneDiagnosticDescription()
+        let currentOutputDevice = activeRecorder.systemOutputDiagnosticDescription()
+        let previousInputDevice = lastObservedInputDevice
+        let previousOutputDevice = lastObservedOutputDevice
+        let inputDeviceChanged = previousInputDevice != nil
+            && currentInputDevice != previousInputDevice
+        let outputDeviceChanged = previousOutputDevice != nil
+            && currentOutputDevice != previousOutputDevice
+
+        lastObservedInputDevice = currentInputDevice
+        lastObservedOutputDevice = currentOutputDevice
+
+        guard inputDeviceChanged || outputDeviceChanged else {
+            if explicitlySelectedMicrophoneDescription == currentInputDevice {
+                explicitlySelectedMicrophoneDescription = nil
+            }
+            return
+        }
+
+        var reasons: [String] = []
+        var microphoneAlreadyRestartedBySelection = false
+        if inputDeviceChanged, let previousInputDevice {
+            reasons.append("input device changed from \(previousInputDevice) to \(currentInputDevice)")
+            microphoneAlreadyRestartedBySelection = microphoneSelectionInProgress
+                || explicitlySelectedMicrophoneDescription == currentInputDevice
+            if microphoneAlreadyRestartedBySelection {
+                await loggingService.log(
+                    "Observed explicitly applied microphone change for job \(currentSession.jobId) from \(previousInputDevice) to \(currentInputDevice); skipped duplicate microphone restart.",
+                    level: .info,
+                    component: "Recording"
+                )
+            }
+            explicitlySelectedMicrophoneDescription = nil
+        }
+        if outputDeviceChanged, let previousOutputDevice {
+            reasons.append("output device changed from \(previousOutputDevice) to \(currentOutputDevice)")
+        }
+
+        let reason = reasons.joined(separator: "; ")
+        await restartSystemAudioCapture(for: currentSession, reason: reason)
+        if currentSession.microphonePaused == false,
+           currentSession.microphoneDegraded == false,
+           (!microphoneAlreadyRestartedBySelection || outputDeviceChanged) {
+            _ = await restartMicrophoneCapture(for: currentSession, reason: reason)
+        }
+
+        lastObservedInputDevice = activeRecorder.microphoneDiagnosticDescription()
+        lastObservedOutputDevice = activeRecorder.systemOutputDiagnosticDescription()
     }
 
     private func monitorRecorderOutput(for session: RecordingSession) async {
@@ -456,13 +652,14 @@ actor RecordingAdapter {
         var lastActivity = activeRecorder?.outputActivity()
         var lastGrowthAt = Date()
         var lastMicrophoneGrowthAt = Date()
-        var lastInputDevice = activeRecorder?.microphoneDiagnosticDescription()
-        var lastOutputDevice = activeRecorder?.systemOutputDiagnosticDescription()
+        var lastHandledMicrophoneRestartGeneration = microphoneRestartGeneration
         var didWarnAboutStall = false
         var didWarnAboutMicrophoneStall = false
         var didAttemptMicrophoneRestart = false
         var lowSystemLevelPolls = 0
         var didWarnAboutLowSystemLevel = false
+        var lastSystemAudioSignalAt = Date()
+        var didNotifyAboutSelectedApplicationSilence = false
 
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: UInt64(watchdogPollInterval * 1_000_000_000))
@@ -477,55 +674,29 @@ actor RecordingAdapter {
             let currentProgress = recorderOutputProgress(for: watchedURLs)
             let currentActivity = activeRecorder?.outputActivity()
             await logRecordingDiagnostics("Recording heartbeat", for: currentSession, activity: currentActivity)
-            let currentInputDevice = activeRecorder?.microphoneDiagnosticDescription()
             let currentOutputDevice = activeRecorder?.systemOutputDiagnosticDescription()
             let levels = activeRecorder?.audioLevels() ?? AudioLevelSnapshot()
-            if currentSession.microphonePaused == false,
-               let previousInputDevice = lastInputDevice,
-               let currentInputDevice,
-               currentInputDevice != previousInputDevice {
-                await padMicrophoneSilenceThroughNow(for: currentSession)
-                do {
-                    try activeRecorder?.restartMicrophoneCapture()
-                    lastInputDevice = activeRecorder?.microphoneDiagnosticDescription() ?? currentInputDevice
-                    lastMicrophoneGrowthAt = Date()
-                    lastActivity = activeRecorder?.outputActivity()
-                    didWarnAboutMicrophoneStall = false
-                    didAttemptMicrophoneRestart = false
-                    await loggingService.log(
-                        "Restarted microphone capture for job \(currentSession.jobId) after input device changed from \(previousInputDevice) to \(lastInputDevice ?? currentInputDevice).",
-                        level: .info,
-                        component: "Recording"
-                    )
-                } catch {
-                    lastInputDevice = currentInputDevice
-                    let warning = "microphone_degraded: microphone input device changed from \(previousInputDevice) to \(currentInputDevice), but restart failed: \(error.localizedDescription)"
-                    await markMicrophoneDegraded(for: currentSession, warning: warning)
-                    lastMicrophoneGrowthAt = Date()
-                }
-                await restartSystemAudioCapture(
-                    for: currentSession,
-                    reason: "input device changed from \(previousInputDevice) to \(currentInputDevice)"
-                )
-                lastOutputDevice = activeRecorder?.systemOutputDiagnosticDescription() ?? currentOutputDevice
-                continue
-            } else {
-                lastInputDevice = currentInputDevice ?? lastInputDevice
+            if lastHandledMicrophoneRestartGeneration != microphoneRestartGeneration {
+                lastHandledMicrophoneRestartGeneration = microphoneRestartGeneration
+                lastMicrophoneGrowthAt = Date()
+                lastActivity = currentActivity
+                didWarnAboutMicrophoneStall = false
+                didAttemptMicrophoneRestart = false
             }
-
-            if let previousOutputDevice = lastOutputDevice,
-               let currentOutputDevice,
-               currentOutputDevice != previousOutputDevice {
-                await restartSystemAudioCapture(
-                    for: currentSession,
-                    reason: "output device changed from \(previousOutputDevice) to \(currentOutputDevice)"
+            if levels.system >= lowSystemLevelThreshold {
+                lastSystemAudioSignalAt = Date()
+                didNotifyAboutSelectedApplicationSilence = false
+            } else if let applicationName = levels.systemApplicationName,
+                      Date().timeIntervalSince(lastSystemAudioSignalAt) >= systemAudioSilenceWarningInterval,
+                      !didNotifyAboutSelectedApplicationSilence {
+                didNotifyAboutSelectedApplicationSilence = true
+                await notificationService?.notifySystemAudioSilent(applicationName: applicationName)
+                await loggingService.log(
+                    "Notified user that no system audio was detected from \(applicationName) for \(Int(systemAudioSilenceWarningInterval.rounded())) seconds in job \(currentSession.jobId).",
+                    level: .warn,
+                    component: "Recording"
                 )
-                lastOutputDevice = activeRecorder?.systemOutputDiagnosticDescription() ?? currentOutputDevice
-                continue
-            } else {
-                lastOutputDevice = currentOutputDevice ?? lastOutputDevice
             }
-
             if let currentActivity,
                currentActivity.systemFramesWritten > 0,
                Date().timeIntervalSince(currentSession.startedAt) >= minimumComparableTrackDuration,
@@ -547,7 +718,7 @@ actor RecordingAdapter {
                 } else if currentSession.microphonePaused == false,
                           currentActivity.systemFramesWritten > previousActivity.systemFramesWritten {
                     let stalledFor = Date().timeIntervalSince(lastMicrophoneGrowthAt)
-                    if stalledFor >= watchdogHungInterval, !didWarnAboutMicrophoneStall {
+                    if stalledFor >= microphoneWatchdogHungInterval, !didWarnAboutMicrophoneStall {
                         let inputDevice = activeRecorder?.microphoneDiagnosticDescription() ?? "unavailable"
                         await loggingService.log(
                             "Microphone output has not advanced for \(Int(stalledFor.rounded())) seconds while system audio is still being recorded (micFrames=\(currentActivity.microphoneFramesWritten), systemFrames=\(currentActivity.systemFramesWritten), inputDevice=\(inputDevice)).",
@@ -556,11 +727,12 @@ actor RecordingAdapter {
                         )
                         didWarnAboutMicrophoneStall = true
                     }
-                    if stalledFor >= watchdogHungInterval, !didAttemptMicrophoneRestart {
+                    if stalledFor >= microphoneWatchdogHungInterval, !didAttemptMicrophoneRestart {
                         didAttemptMicrophoneRestart = true
                         await padMicrophoneSilenceThroughNow(for: currentSession)
                         do {
                             try activeRecorder?.restartMicrophoneCapture()
+                            microphoneRestartGeneration += 1
                             lastMicrophoneGrowthAt = Date()
                             lastActivity = activeRecorder?.outputActivity()
                             didWarnAboutMicrophoneStall = false
@@ -575,7 +747,7 @@ actor RecordingAdapter {
                             await markMicrophoneDegraded(for: currentSession, warning: warning)
                             lastMicrophoneGrowthAt = Date()
                         }
-                    } else if stalledFor >= watchdogHungInterval,
+                    } else if stalledFor >= microphoneWatchdogHungInterval,
                               didAttemptMicrophoneRestart,
                               !currentSession.microphoneDegraded {
                         await padMicrophoneSilenceThroughNow(for: currentSession)
@@ -624,13 +796,21 @@ actor RecordingAdapter {
 
         recorderWatchdogTask?.cancel()
         recorderWatchdogTask = nil
+        audioDeviceRouteDebounceTask?.cancel()
+        audioDeviceRouteDebounceTask = nil
         preEndNotificationTask?.cancel()
         preEndNotificationTask = nil
+        recorder.setAudioDeviceRouteChangeHandler(nil)
         recorder.setSystemAudioInterruptionHandler(nil)
+        recorder.setSystemAudioSourceEventHandler(nil)
         activeSession = nil
         activeRecorder = nil
         systemAudioUnexpectedRestartAttempts = []
         didNotifySystemAudioFailure = false
+        microphoneSelectionInProgress = false
+        explicitlySelectedMicrophoneDescription = nil
+        lastObservedInputDevice = nil
+        lastObservedOutputDevice = nil
 
         try? await recorder.stop()
 
@@ -731,6 +911,23 @@ actor RecordingAdapter {
         )
     }
 
+    private func logSystemAudioSourceEvent(_ event: SystemAudioSourceEvent, jobId: String) async {
+        let message: String
+        let level: LoggingService.LogLevel
+        switch event {
+        case let .applicationUnavailable(bundleIdentifier, applicationName, previousProcessIdentifiers):
+            message = "Selected system audio application stopped for job \(jobId): bundle=\(bundleIdentifier), previousPIDs=\(previousProcessIdentifiers). Waiting for it to reopen."
+            level = .warn
+            if activeSession?.jobId == jobId {
+                await notificationService?.notifyRecordingSourceUnavailable(applicationName: applicationName)
+            }
+        case let .processesRebound(bundleIdentifier, applicationName, previousProcessIdentifiers, currentProcessIdentifiers):
+            message = "Rebound system audio capture for job \(jobId): application=\(applicationName), bundle=\(bundleIdentifier), previousPIDs=\(previousProcessIdentifiers), currentPIDs=\(currentProcessIdentifiers)."
+            level = .info
+        }
+        await loggingService.log(message, level: level, component: "Recording")
+    }
+
     private func handleSystemAudioStreamStopped(jobId: String, reason: String) async {
         guard let currentSession = activeSession,
               currentSession.jobId == jobId,
@@ -805,6 +1002,28 @@ actor RecordingAdapter {
             let warning = "system_audio_degraded: system audio capture restart failed after \(reason): \(error.localizedDescription)"
             await notifySystemAudioFailureIfNeeded(jobId: session.jobId, reason: warning)
             await markSystemAudioDegraded(for: session, warning: warning)
+        }
+    }
+
+    private func restartMicrophoneCapture(for session: RecordingSession, reason: String) async -> Bool {
+        guard let recorder = activeRecorder else {
+            return false
+        }
+
+        await padMicrophoneSilenceThroughNow(for: session)
+        do {
+            try recorder.restartMicrophoneCapture()
+            microphoneRestartGeneration += 1
+            await loggingService.log(
+                "Restarted microphone capture for job \(session.jobId) after \(reason) (inputDevice=\(recorder.microphoneDiagnosticDescription())).",
+                level: .info,
+                component: "Recording"
+            )
+            return true
+        } catch {
+            let warning = "microphone_degraded: microphone capture restart failed after \(reason): \(error.localizedDescription)"
+            await markMicrophoneDegraded(for: session, warning: warning)
+            return false
         }
     }
 

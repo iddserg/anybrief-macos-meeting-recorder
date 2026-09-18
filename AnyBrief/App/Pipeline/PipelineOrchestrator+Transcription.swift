@@ -29,16 +29,20 @@ extension PipelineOrchestrator {
 
         let existingJob = await jobRepository.get(id: jobId)
         let startedAt = existingJob?.createdAt ?? Date()
-        let source = existingJob?.source ?? "manual"
+        let source = MeetingMetadataStore.isImported(in: meetingFolderURL)
+            ? RecordingSession.fileImportSource : (existingJob?.source ?? "manual")
 
         do {
             try FileManager.default.createDirectory(
                 at: scratchURL,
                 withIntermediateDirectories: true
             )
+            FileManager.default.createFile(atPath: scratchURL.appendingPathComponent("reprocessing.log").path, contents: nil)
             let audio = try reprocessingAudioURLs(
                 meetingFolderURL: meetingFolderURL,
-                scratchURL: scratchURL
+                scratchURL: scratchURL,
+                hasMicrophone: source != RecordingSession.fileImportSource
+                    && !MeetingMetadataStore.skipsMicrophone(in: meetingFolderURL)
             )
             let session = RecordingSession(
                 jobId: jobId,
@@ -70,7 +74,7 @@ extension PipelineOrchestrator {
             try await cleanupTranscriptIfNeeded(for: session)
 
             if mode == .all {
-                switch await summarize(segments: segments, for: session, forceEnabled: true) {
+                switch try await summarize(segments: segments, for: session, forceEnabled: true) {
                 case .ready:
                     await notifyUser(
                         NotificationService.Category.summaryReady.rawValue,
@@ -79,13 +83,42 @@ extension PipelineOrchestrator {
                     )
                 case .skipped:
                     break
-                case .fallback:
+                case let .fallback(errorState):
+                    let settings = await effectiveSettings(for: session)
+                    await runPostProcessingExport(for: session, settings: settings, calendarEvent: nil)
+                    if source == RecordingSession.fileImportSource,
+                       !FileManager.default.fileExists(atPath: meetingFolderURL.appendingPathComponent("bundle.zip").path) {
+                        try await finalizationService.finalize(session: session, summary: "", completion: .partialSuccess(errorState))
+                        return
+                    }
+                    let partialJob = await updatedJob(
+                        from: session,
+                        status: "partial_success",
+                        stage: .partialSuccess,
+                        completedAt: Date(),
+                        errorState: errorState
+                    )
+                    await jobRepository.upsert(partialJob)
+                    await notifyUser(
+                        NotificationService.Category.summaryReady.rawValue,
+                        "AnyBrief",
+                        String(localized: "Your brief is ready")
+                    )
+                    await appStateDidChange(.idle)
                     return
                 }
             }
 
-            await refreshReprocessedBundle(in: meetingFolderURL)
-            await markReprocessingCompleted(session)
+            let settings = await effectiveSettings(for: session)
+            await runPostProcessingExport(for: session, settings: settings, calendarEvent: nil)
+
+            if source == RecordingSession.fileImportSource,
+               !FileManager.default.fileExists(atPath: meetingFolderURL.appendingPathComponent("bundle.zip").path) {
+                try await finalizationService.finalize(session: session, summary: "")
+            } else {
+                await refreshReprocessedBundle(in: meetingFolderURL)
+                await markReprocessingCompleted(session)
+            }
             await loggingService.log(
                 "Manual meeting reprocessing completed for \(meetingFolderURL.lastPathComponent): mode=\(mode.logValue)",
                 level: .info,
@@ -93,6 +126,7 @@ extension PipelineOrchestrator {
             )
             await appStateDidChange(.idle)
         } catch {
+            if Task.isCancelled || error is CancellationError { throw CancellationError() }
             let stage = await jobRepository.get(id: jobId)?.stage ?? .transcribingSystem
             let fallbackPaths = MeetingPaths(
                 folderURL: meetingFolderURL,
@@ -117,6 +151,15 @@ extension PipelineOrchestrator {
     }
 
     func transcribe(_ track: TranscriptionTrack, for session: RecordingSession) async throws -> [TranscriptSegment] {
+        try Task.checkCancellation()
+        if track == .mic && !session.shouldTranscribeMicrophone {
+            if session.hasMicrophoneTrack {
+                let message = "Microphone transcription skipped by meeting preference for job \(session.jobId). Audio is preserved."
+                await loggingService.log(message, level: .info, component: "Pipeline")
+                Self.appendToJobLog("ℹ️ \(message)\n", at: session.paths.jobLogURL)
+            }
+            return []
+        }
         let stage: JobStage = track == .system ? .transcribingSystem : .transcribingMic
         await upsertJob(from: session, status: "processing", stage: stage)
         await loggingService.log(
@@ -132,7 +175,8 @@ extension PipelineOrchestrator {
         let wavSize = (try? FileManager.default.attributesOfItem(atPath: wavURL.path)[.size] as? Int) ?? 0
         let wavDuration = (try? await Self.audioDuration(for: wavURL))
             .map { String(format: "%.1fs", $0) } ?? "unknown"
-        let providerDetails = transcriptionProviderDetails(settings: settings)
+        let metadata = try await transcriptionService.metadata(settings: settings)
+        let providerDetails = "provider:\(metadata.provider), model:\(metadata.model), language:\(metadata.language ?? "multilingual-auto")"
         await loggingService.log(
             "\(stage.rawValue) input: \(wavURL.path) [\(wavSize / 1024)KB, duration=\(wavDuration)], \(providerDetails)",
             level: .info,
@@ -164,6 +208,7 @@ extension PipelineOrchestrator {
     }
 
     func loadTranscription(_ track: TranscriptionTrack, for session: RecordingSession) throws -> [TranscriptSegment] {
+        if track == .mic && !session.shouldTranscribeMicrophone { return [] }
         let wavURL = track == .system ? session.paths.systemWavURL : session.paths.micWavURL
         let outputDir = transcriptionOutputDir(for: session, track: track)
         let combinedTxtURL = transcriptionCombinedTxtURL(for: wavURL, outputDir: outputDir)
@@ -206,8 +251,15 @@ extension PipelineOrchestrator {
 
     private func reprocessingAudioURLs(
         meetingFolderURL: URL,
-        scratchURL: URL
+        scratchURL: URL,
+        hasMicrophone: Bool
     ) throws -> (system: URL, microphone: URL) {
+        let rawSystem = meetingFolderURL.appendingPathComponent("tmp/system.wav")
+        let rawMic = meetingFolderURL.appendingPathComponent("tmp/mic.wav")
+        if !hasMicrophone, FileManager.default.fileExists(atPath: rawSystem.path) {
+            return try normalizeReprocessingAudio(systemURL: rawSystem, microphoneURL: rawMic,
+                                                 scratchURL: scratchURL, hasMicrophone: hasMicrophone)
+        }
         let candidates = [
             meetingFolderURL,
             meetingFolderURL.appendingPathComponent("bundle", isDirectory: true),
@@ -216,11 +268,11 @@ extension PipelineOrchestrator {
             let systemURL = directory.appendingPathComponent("system_audio.mp3", isDirectory: false)
             let microphoneURL = directory.appendingPathComponent("microphone_audio.mp3", isDirectory: false)
             if FileManager.default.fileExists(atPath: systemURL.path),
-               FileManager.default.fileExists(atPath: microphoneURL.path) {
+               (!hasMicrophone || FileManager.default.fileExists(atPath: microphoneURL.path)) {
                 return try normalizeReprocessingAudio(
                     systemURL: systemURL,
                     microphoneURL: microphoneURL,
-                    scratchURL: scratchURL
+                    scratchURL: scratchURL, hasMicrophone: hasMicrophone
                 )
             }
         }
@@ -236,9 +288,7 @@ extension PipelineOrchestrator {
         process.executableURL = URL(fileURLWithPath: "/usr/bin/unzip", isDirectory: false)
         process.arguments = [
             "-qq", "-j", bundleURL.path,
-            "system_audio.mp3", "microphone_audio.mp3",
-            "-d", inputURL.path,
-        ]
+        ] + (hasMicrophone ? ["system_audio.mp3", "microphone_audio.mp3"] : ["system_audio.mp3"]) + ["-d", inputURL.path]
         try PipelineProcessRunner.run(
             process,
             errorContext: "unzip failed reading \(bundleURL.lastPathComponent)"
@@ -247,20 +297,21 @@ extension PipelineOrchestrator {
         let systemURL = inputURL.appendingPathComponent("system_audio.mp3", isDirectory: false)
         let microphoneURL = inputURL.appendingPathComponent("microphone_audio.mp3", isDirectory: false)
         guard FileManager.default.fileExists(atPath: systemURL.path),
-              FileManager.default.fileExists(atPath: microphoneURL.path) else {
+              (!hasMicrophone || FileManager.default.fileExists(atPath: microphoneURL.path)) else {
             throw TranscriptionError(message: String(localized: "Meeting audio files are missing."))
         }
         return try normalizeReprocessingAudio(
             systemURL: systemURL,
             microphoneURL: microphoneURL,
-            scratchURL: scratchURL
+            scratchURL: scratchURL, hasMicrophone: hasMicrophone
         )
     }
 
     private func normalizeReprocessingAudio(
         systemURL: URL,
         microphoneURL: URL,
-        scratchURL: URL
+        scratchURL: URL,
+        hasMicrophone: Bool
     ) throws -> (system: URL, microphone: URL) {
         let normalizedURL = scratchURL.appendingPathComponent("normalized", isDirectory: true)
         let systemWAVURL = normalizedURL.appendingPathComponent("system_audio.wav", isDirectory: false)
@@ -272,21 +323,12 @@ extension PipelineOrchestrator {
             inputURL: systemURL,
             outputURL: systemWAVURL
         )
-        try audioConversionService.convertToTranscriptionWAV(
-            inputURL: microphoneURL,
-            outputURL: microphoneWAVURL
-        )
-        return (systemWAVURL, microphoneWAVURL)
-    }
-
-    private func transcriptionProviderDetails(settings: AppSettings) -> String {
-        switch settings.transcription.activeProviderConfiguration.provider {
-        case .fluidAudioSTT:
-            return "provider=\(TranscriptionProviderID.fluidAudioSTT.rawValue), model=nvidia-parakeet-tdt-0.6b-v3, language=multilingual-auto"
-        case .whisperCpp:
-            let config = settings.transcription.whisperCppConfig
-            return "provider=\(TranscriptionProviderID.whisperCpp.rawValue), model=\(config.model), language=\(config.language)"
+        if hasMicrophone {
+            try audioConversionService.convertToTranscriptionWAV(
+                inputURL: microphoneURL, outputURL: microphoneWAVURL
+            )
         }
+        return (systemWAVURL, microphoneWAVURL)
     }
 
     private func markReprocessingCompleted(_ session: RecordingSession) async {
@@ -310,6 +352,7 @@ extension PipelineOrchestrator {
 
     private func refreshReprocessedBundle(in meetingFolderURL: URL) async {
         let artifactNames = [
+            "transcript_raw.txt",
             "transcript.txt",
             "transcript_merged.json",
             "summary.md",

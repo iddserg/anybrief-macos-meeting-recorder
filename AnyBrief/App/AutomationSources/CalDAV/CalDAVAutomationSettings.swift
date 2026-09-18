@@ -21,13 +21,13 @@ struct CalDAVAutomationSettings: Codable, Equatable {
 struct AutopilotSettings: Codable, Equatable {
     var enabled = false
     var filter = "meeting_url_or_multiparticipant"
-    var startLeadSec = 30
-    var stopGraceSec = 60
     var preEndNotificationSec = 120
     var muteMicrophone = false
     var participantCountMode = "calendar"
     var participantCount = 2
     var pollIntervalSec = 30
+    var excludedEventUIDs: [String] = []
+    var excludedSeriesUIDs: [String] = []
 
     init() {}
 
@@ -36,8 +36,6 @@ struct AutopilotSettings: Codable, Equatable {
         let defaults = AutopilotSettings()
         enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled) ?? defaults.enabled
         filter = try container.decodeIfPresent(String.self, forKey: .filter) ?? defaults.filter
-        startLeadSec = try container.decodeIfPresent(Int.self, forKey: .startLeadSec) ?? defaults.startLeadSec
-        stopGraceSec = try container.decodeIfPresent(Int.self, forKey: .stopGraceSec) ?? defaults.stopGraceSec
         preEndNotificationSec = try container.decodeIfPresent(Int.self, forKey: .preEndNotificationSec)
             ?? defaults.preEndNotificationSec
         muteMicrophone = try container.decodeIfPresent(Bool.self, forKey: .muteMicrophone) ?? defaults.muteMicrophone
@@ -46,6 +44,28 @@ struct AutopilotSettings: Codable, Equatable {
         participantCount = try container.decodeIfPresent(Int.self, forKey: .participantCount)
             ?? defaults.participantCount
         pollIntervalSec = try container.decodeIfPresent(Int.self, forKey: .pollIntervalSec) ?? defaults.pollIntervalSec
+        excludedEventUIDs = try container.decodeIfPresent([String].self, forKey: .excludedEventUIDs)
+            ?? defaults.excludedEventUIDs
+        excludedSeriesUIDs = try container.decodeIfPresent([String].self, forKey: .excludedSeriesUIDs)
+            ?? defaults.excludedSeriesUIDs
+    }
+
+    func includes(_ event: CalendarEvent) -> Bool {
+        !excludedEventUIDs.contains(event.uid) && !excludedSeriesUIDs.contains(event.originalUID)
+    }
+
+    mutating func setIncluded(_ included: Bool, eventUID: String, originalUID: String, isRecurring: Bool) {
+        if isRecurring {
+            excludedSeriesUIDs.removeAll { $0 == originalUID }
+            if !included {
+                excludedSeriesUIDs.append(originalUID)
+            }
+        } else {
+            excludedEventUIDs.removeAll { $0 == eventUID }
+            if !included {
+                excludedEventUIDs.append(eventUID)
+            }
+        }
     }
 }
 

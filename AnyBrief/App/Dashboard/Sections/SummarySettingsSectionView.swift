@@ -3,67 +3,38 @@ import SwiftUI
 
 extension DashboardView {
     var settingsCategoryTabs: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 24) {
             ForEach(SettingsCategory.allCases) { category in
-                Button {
+                WorkspaceTab(title: category.title, selected: selectedSettingsCategory == category) {
                     selectedSettingsCategory = category
-                } label: {
-                    Text(category.title)
-                        .font(ABTypography.bodyMedium)
-                        .lineLimit(1)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 42)
-                        .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(selectedSettingsCategory == category ? Color.white : ABDesign.primaryText)
-                .background(
-                    Rectangle()
-                        .fill(selectedSettingsCategory == category ? ABDesign.accent : Color.clear)
-                )
                 .accessibilityIdentifier("settings.category.\(category.rawValue)")
-
-                if category.id != SettingsCategory.allCases.last?.id {
-                    Rectangle()
-                        .fill(ABDesign.hairline)
-                        .frame(width: 1, height: 42)
-                }
             }
+            Spacer(minLength: 0)
         }
-        .frame(height: 42)
-        .clipShape(RoundedRectangle(cornerRadius: 9))
-        .overlay(
-            RoundedRectangle(cornerRadius: 9)
-                .stroke(Color.black.opacity(0.14), lineWidth: 1)
-        )
+        .padding(.horizontal, WorkspaceDesign.inset)
     }
 
     var summarySettingsGroup: some View {
-        settingsGroup(title: String(localized: "LLM connections")) {
-            Text(String(localized: "Configured connections are available for summarization and Live. Which connection each task uses is selected in the Prompts section."))
-                .font(ABTypography.caption)
-                .foregroundStyle(ABDesign.secondaryText)
-
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .top, spacing: 14) {
-                    summaryProviderSidebar
-                        .frame(width: 230)
-
+        HStack(spacing: 0) {
+            summaryProviderSidebar
+                .frame(width: WorkspaceDesign.listWidth)
+            Divider()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
                     if let configuration = selectedSummaryProviderConfigurationBinding {
                         summaryProviderDetails(configuration)
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                            .id(configuration.wrappedValue.id)
                     } else {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text(String(localized: "No LLM connections configured."))
-                                .font(ABTypography.body)
-                                .foregroundStyle(ABDesign.secondaryText)
-                            summaryProviderAddMenu
-                        }
-                        .frame(maxWidth: .infinity, alignment: .topLeading)
+                        Text(String(localized: "No LLM connections configured."))
+                            .foregroundStyle(ABDesign.secondaryText)
+                        summaryProviderAddMenu
                     }
                 }
+                .frame(maxWidth: 760, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(WorkspaceDesign.inset)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
@@ -75,13 +46,16 @@ extension DashboardView {
         guard let index = selectedIndex ?? viewModel.summaryProviderEntries.indices.first else {
             return nil
         }
-        return $viewModel.summaryProviderEntries[index]
+        return WorkspaceCollectionBinding.item(viewModel.summaryProviderEntries[index], in: $viewModel.summaryProviderEntries)
     }
 
     func summaryProviderAPIKeyBinding(for id: String) -> Binding<String> {
         Binding(
             get: { viewModel.summaryProviderAPIKeys[id] ?? "" },
-            set: { viewModel.summaryProviderAPIKeys[id] = $0 }
+            set: { value in
+                guard viewModel.summaryProviderEntries.contains(where: { $0.id == id }) else { return }
+                viewModel.summaryProviderAPIKeys[id] = value
+            }
         )
     }
 
@@ -95,36 +69,25 @@ extension DashboardView {
 
     var summaryProviderSidebar: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(String(localized: "Connections"))
-                .font(ABTypography.bodySemibold)
-                .foregroundStyle(ABDesign.primaryText)
-
             ScrollView(.vertical) {
-                VStack(spacing: 4) {
-                    ForEach($viewModel.summaryProviderEntries) { $configuration in
-                        summaryProviderSidebarRow($configuration)
+                VStack(spacing: WorkspaceDesign.listRowSpacing) {
+                    ForEach(viewModel.summaryProviderEntries) { configuration in
+                        summaryProviderSidebarRow(WorkspaceCollectionBinding.item(configuration, in: $viewModel.summaryProviderEntries))
                     }
                 }
-                .padding(.trailing, 2)
+                .padding(.horizontal, 12)
+                .padding(.top, 12)
             }
             .scrollIndicators(.automatic)
-            .frame(maxHeight: 218)
+            .frame(maxHeight: .infinity)
 
-            Spacer(minLength: 6)
-            HStack(spacing: 8) {
+            WorkspaceCollectionActions {
                 summaryProviderAddMenu
                 summaryProviderRemoveButton
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(10)
-        .frame(minHeight: 316, alignment: .topLeading)
-        .background(Color.white.opacity(0.62))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.black.opacity(0.12), lineWidth: 1)
-        )
+        .frame(maxHeight: .infinity, alignment: .topLeading)
+        .background(WorkspaceDesign.secondarySurface)
     }
 
     func summaryProviderSidebarRow(_ configuration: Binding<SummaryProviderConfiguration>) -> some View {
@@ -140,14 +103,14 @@ extension DashboardView {
                     Image(systemName: module?.systemImage ?? "questionmark.square")
                         .frame(width: 16)
                     Text(summaryProviderSidebarLabel(value, module: module))
-                        .font(ABTypography.captionMedium)
-                        .lineLimit(1)
+                        .font(ABTypography.bodyMedium)
+                        .lineLimit(2)
                     Spacer(minLength: 0)
                 }
-                .foregroundStyle(isSelected ? Color.white : ABDesign.primaryText)
-                .padding(.horizontal, 8)
-                .frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
-                .background(isSelected ? ABDesign.accent : Color.clear)
+                .foregroundStyle(isSelected ? ABDesign.accent : ABDesign.primaryText)
+                .padding(.horizontal, 8).padding(.vertical, WorkspaceDesign.listRowVerticalInset)
+                .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
+                .background(isSelected ? ABDesign.selectedSidebarBackground : Color.clear)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
                 .contentShape(RoundedRectangle(cornerRadius: 6))
             }
@@ -196,11 +159,13 @@ extension DashboardView {
                 .disabled(!viewModel.canAddSummaryProviderConfiguration(module.id))
             }
         } label: {
-            Image(systemName: "plus")
-                .font(ABTypography.bodySemibold)
-                .frame(width: 42, height: 32)
+            WorkspaceCollectionActionIcon(systemImage: "plus")
         }
-        .menuStyle(.button)
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .accessibilityLabel(String(localized: "Add connection"))
+        .help(Text("Add connection"))
     }
 
     var summaryProviderRemoveButton: some View {
@@ -210,41 +175,32 @@ extension DashboardView {
             }
             viewModel.removeSummaryProviderConfiguration(configuration)
         } label: {
-            Image(systemName: "minus")
-                .font(ABTypography.bodySemibold)
-                .frame(width: 42, height: 20)
+            WorkspaceCollectionActionIcon(systemImage: "minus")
         }
-        .controlSize(.small)
-        .buttonStyle(.bordered)
+        .buttonStyle(.plain)
+        .accessibilityLabel(String(localized: "Remove connection"))
+        .help(Text("Remove connection"))
         .disabled(viewModel.summaryProviderEntries.count <= 1)
     }
 
     @ViewBuilder
     func summaryProviderDetails(_ configuration: Binding<SummaryProviderConfiguration>) -> some View {
         let module = summaryProviderModule(for: configuration.wrappedValue.provider)
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Image(systemName: module?.systemImage ?? "questionmark.square")
-                    .foregroundStyle(ABDesign.accent)
-                Text(module.map(localizedSummaryProviderTitle) ?? LocalizedStringKey(configuration.wrappedValue.provider.rawValue))
-                    .font(ABTypography.sectionTitle)
-                    .foregroundStyle(ABDesign.primaryText)
-                Spacer()
+        VStack(alignment: .leading, spacing: 20) {
+            SummaryProviderSettingsControls.labeledField(
+                String(localized: "Name"),
+                help: String(localized: "Optional label shown instead of the provider/model name in connection pickers.")
+            ) {
+                TextField(
+                    module.map(localizedSummaryProviderTitleString) ?? configuration.wrappedValue.provider.rawValue,
+                    text: SummaryProviderSettingsControls.optionalStringBinding(configuration.name)
+                )
+                .font(ABTypography.field)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 220)
             }
 
             SummaryProviderSettingsControls.wrappingFieldRow {
-                SummaryProviderSettingsControls.labeledField(
-                    String(localized: "Name"),
-                    help: String(localized: "Optional label shown instead of the provider/model name in connection pickers.")
-                ) {
-                    TextField(
-                        module.map(localizedSummaryProviderTitleString) ?? configuration.wrappedValue.provider.rawValue,
-                        text: SummaryProviderSettingsControls.optionalStringBinding(configuration.name)
-                    )
-                    .font(ABTypography.field)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 220)
-                }
                 SummaryProviderSettingsControls.labeledField(
                     String(localized: "Timeout (sec)"),
                     help: String(localized: "How long to wait for this connection before treating the request as failed.")
@@ -259,7 +215,7 @@ extension DashboardView {
                     )
                     .font(ABTypography.field)
                     .textFieldStyle(.roundedBorder)
-                    .frame(width: 80)
+                    .frame(width: WorkspaceDesign.numericFieldWidth)
                 }
                 SummaryProviderSettingsControls.labeledField(
                     String(localized: "Retries"),
@@ -275,7 +231,7 @@ extension DashboardView {
                     )
                     .font(ABTypography.field)
                     .textFieldStyle(.roundedBorder)
-                    .frame(width: 80)
+                    .frame(width: WorkspaceDesign.numericFieldWidth)
                 }
             }
 
@@ -316,10 +272,8 @@ extension DashboardView {
                         : String(localized: "Check"),
                     systemImage: "checkmark.circle"
                 )
-                .font(ABTypography.captionMedium)
-                .frame(height: 26)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(WorkspaceButtonStyle())
             .disabled(viewModel.isCheckingSummaryProvider(configuration))
 
             if let result = viewModel.summaryProviderDiagnosticResult(for: configuration) {
@@ -336,12 +290,11 @@ extension DashboardView {
                 .font(ABTypography.captionSemibold)
             Text(result.message)
                 .font(ABTypography.caption)
-                .lineLimit(1)
-                .truncationMode(.tail)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .foregroundStyle(summaryProviderDiagnosticColor(result.status))
         .padding(.horizontal, 10)
-        .frame(height: 30)
+        .padding(.vertical, 8)
         .background(summaryProviderDiagnosticColor(result.status).opacity(0.10))
         .clipShape(RoundedRectangle(cornerRadius: 8))
     }

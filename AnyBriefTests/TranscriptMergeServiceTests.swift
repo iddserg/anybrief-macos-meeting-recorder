@@ -132,6 +132,32 @@ final class TranscriptMergeServiceTests: XCTestCase {
         XCTAssertEqual(lines[0], "[00:00:01.000] Speaker 1: First point: sync on tasks.")
     }
 
+    func testRawTranscriptSurvivesLLMOutputAndRefreshesOnNewRecognition() async throws {
+        let service = TranscriptMergeService()
+        let folder = try makeTemporaryDirectory()
+        let system = segment(startTime: 0, endTime: 2, speaker: "Speaker A", text: "System speech", sourceTrack: .system)
+        let mic = segment(startTime: 2, endTime: 3, speaker: "Mic", text: "Microphone speech", sourceTrack: .mic)
+        _ = try await service.write(system: [system], mic: [mic], meetingFolder: folder)
+        let original = try await service.rawTranscript(in: folder)
+        XCTAssertTrue(original.contains("System speech"))
+        XCTAssertTrue(original.contains("Microphone speech"))
+        let output = folder.appendingPathComponent("transcript.txt")
+        try "Incomplete LLM response".write(to: output, atomically: true, encoding: .utf8)
+        let retryInput = try await service.rawTranscript(in: folder)
+        XCTAssertEqual(retryInput, original)
+
+        // Older resumable jobs have JSON, but no separate input file yet.
+        try FileManager.default.removeItem(at: folder.appendingPathComponent("transcript_raw.txt"))
+        let recoveredInput = try await service.rawTranscript(in: folder)
+        XCTAssertEqual(recoveredInput, original)
+        XCTAssertEqual(try String(contentsOf: output, encoding: .utf8), "Incomplete LLM response")
+
+        _ = try await service.write(system: [system], mic: [], meetingFolder: folder)
+        let newInput = try await service.rawTranscript(in: folder)
+        XCTAssertFalse(newInput.contains("Microphone speech"))
+        XCTAssertEqual(try String(contentsOf: output, encoding: .utf8), newInput)
+    }
+
     private func segment(
         startTime: TimeInterval,
         endTime: TimeInterval,

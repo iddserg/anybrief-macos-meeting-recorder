@@ -2,6 +2,9 @@ import Foundation
 import SwiftUI
 
 struct WindowObserverModule: AutomationSourceModule {
+    var settingsPayloadCodec: ModuleSettingsPayloadCodec {
+        ModuleSettingsPayloadCodec(WindowObserverConfig.self, includesEnabled: true, secrets: [], transform: { $0.normalized() })
+    }
     let id: AutomationSourceID = .windowObserver
     let title = "Window Observer"
     let systemImage = "macwindow.badge.record"

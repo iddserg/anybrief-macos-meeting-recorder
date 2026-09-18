@@ -11,7 +11,9 @@ actor LoggingService {
     }
 
     private let fileManager = FileManager.default
-    private let maximumFileSize = 5 * 1024 * 1024
+    private let maximumFileSize: Int
+    private let maximumJobLogsSize: Int
+    private let maximumJobLogFiles: Int
     private let logFileName = "app.log"
     private let rotatedLogFileName = "app.log.1"
     private let logsDirectoryURL: URL
@@ -23,8 +25,16 @@ actor LoggingService {
         return formatter
     }()
 
-    init(logsDirectoryURL: URL? = nil) {
+    init(
+        logsDirectoryURL: URL? = nil,
+        maximumFileSize: Int = 5 * 1024 * 1024,
+        maximumJobLogsSize: Int = 20 * 1024 * 1024,
+        maximumJobLogFiles: Int = 100
+    ) {
         self.logsDirectoryURL = logsDirectoryURL ?? Self.defaultLogsDirectoryURL()
+        self.maximumFileSize = max(1, maximumFileSize)
+        self.maximumJobLogsSize = max(1, maximumJobLogsSize)
+        self.maximumJobLogFiles = max(1, maximumJobLogFiles)
     }
 
     func log(_ message: String, level: LogLevel, component: String) {
@@ -36,6 +46,7 @@ actor LoggingService {
 
             try rotateLogFileIfNeeded(at: logFileURL, incomingDataSize: line.utf8.count)
             try appendLine(line, to: logFileURL)
+            try pruneJobLogsIfNeeded(in: logsDirectory)
         } catch {
             fputs("LoggingService error: \(error)\n", stderr)
         }
@@ -97,6 +108,35 @@ actor LoggingService {
             try data.append(to: logFileURL)
         } else {
             try data.write(to: logFileURL, options: .atomic)
+        }
+    }
+
+    private func pruneJobLogsIfNeeded(in logsDirectoryURL: URL) throws {
+        let jobsDirectoryURL = logsDirectoryURL.appendingPathComponent("jobs", isDirectory: true)
+        guard fileManager.fileExists(atPath: jobsDirectoryURL.path) else {
+            return
+        }
+
+        let keys: Set<URLResourceKey> = [.contentModificationDateKey, .fileSizeKey, .isRegularFileKey]
+        var files = try fileManager.contentsOfDirectory(
+            at: jobsDirectoryURL,
+            includingPropertiesForKeys: Array(keys),
+            options: [.skipsHiddenFiles]
+        ).compactMap { url -> (url: URL, date: Date, size: Int)? in
+            guard url.pathExtension == "log",
+                  let values = try? url.resourceValues(forKeys: keys),
+                  values.isRegularFile == true else {
+                return nil
+            }
+            return (url, values.contentModificationDate ?? .distantPast, values.fileSize ?? 0)
+        }.sorted { $0.date < $1.date }
+
+        var totalSize = files.reduce(0) { $0 + $1.size }
+        while files.count > 1,
+              (files.count > maximumJobLogFiles || totalSize > maximumJobLogsSize) {
+            let oldest = files.removeFirst()
+            try fileManager.removeItem(at: oldest.url)
+            totalSize -= oldest.size
         }
     }
 

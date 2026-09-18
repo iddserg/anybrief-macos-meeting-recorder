@@ -1,12 +1,10 @@
 import Foundation
 
 extension PipelineOrchestrator {
-    /// Runs an optional LLM pass over transcript.txt between merging and
-    /// summarization to fix recognition errors and fill in speaker names
-    /// from calendar context. Overwrites transcript.txt in place so every
-    /// downstream consumer (summarization, exports, the dashboard) sees the
-    /// cleaned version. Failures are logged and non-fatal: the pipeline
-    /// continues with the original transcript.
+    /// Reads preserved transcript_raw.txt and writes the LLM result to
+    /// transcript.txt for downstream consumers. Retries always use the raw
+    /// recognition result. Failed or excessively shortened output falls back
+    /// to the original transcript, including when retrying an older result.
     func cleanupTranscriptIfNeeded(for session: RecordingSession) async throws {
         let settings = await effectiveSettings(for: session)
         guard settings.prompts.transcriptCleanup.enabled else {
@@ -14,8 +12,9 @@ extension PipelineOrchestrator {
         }
 
         let transcriptURL = session.paths.folderURL.appendingPathComponent("transcript.txt", isDirectory: false)
-        guard let transcript = try? String(contentsOf: transcriptURL, encoding: .utf8),
-              !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        let rawURL = session.paths.folderURL.appendingPathComponent("transcript_raw.txt", isDirectory: false)
+        let transcript = try await transcriptMergeService.rawTranscript(in: session.paths.folderURL)
+        guard !transcript.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return
         }
 
@@ -39,6 +38,9 @@ extension PipelineOrchestrator {
         }
 
         try Task.checkCancellation()
+        // Seed the output from the preserved input, not a previous LLM result.
+        // All failure paths therefore leave usable original text downstream.
+        try transcript.write(to: transcriptURL, atomically: true, encoding: .utf8)
         await upsertJob(from: session, status: "processing", stage: .processingTranscript)
         await loggingService.log(
             "Starting transcript cleanup for job \(session.jobId)",
@@ -63,7 +65,7 @@ extension PipelineOrchestrator {
                 transcript: input,
                 settings: settings,
                 workingDirectory: session.paths.folderURL,
-                transcriptURL: transcriptURL,
+                transcriptURL: rawURL,
                 progress: { [weak self] event in
                     await self?.updateLLMActivity(
                         for: session.jobId,
@@ -73,14 +75,26 @@ extension PipelineOrchestrator {
                 }
             ).trimmingCharacters(in: .whitespacesAndNewlines)
             let elapsed = Date().timeIntervalSince(startedAt)
-            guard !cleaned.isEmpty else {
+            try Task.checkCancellation()
+            // Compare transcript text only (without calendar metadata). Ignore
+            // whitespace so formatting changes cannot hide substantial loss.
+            let originalCount = transcript.filter { !$0.isWhitespace }.count
+            let cleanedCount = cleaned.filter { !$0.isWhitespace }.count
+            let retainedRatio = Double(cleanedCount) / Double(originalCount)
+            guard cleanedCount > 0, retainedRatio >= 0.5 else {
+                let message = "Transcript cleanup rejected for job \(session.jobId): output is too short "
+                    + "(input_chars=\(originalCount), output_chars=\(cleanedCount), "
+                    + "retained_percent=\(String(format: "%.1f", retainedRatio * 100)), minimum_percent=50). "
+                    + "Keeping original transcript."
                 await loggingService.log(
-                    "Transcript cleanup returned empty output for job \(session.jobId); keeping original transcript.",
-                    level: .warn,
+                    message,
+                    level: .error,
                     component: "Pipeline"
                 )
+                Self.appendToJobLog("ERROR: \(message)\n", at: session.paths.jobLogURL)
                 return
             }
+            try Task.checkCancellation()
             try (cleaned + "\n").write(to: transcriptURL, atomically: true, encoding: .utf8)
             await loggingService.log(
                 "Transcript cleanup completed for job \(session.jobId): elapsed_sec=\(String(format: "%.1f", elapsed))",
@@ -89,12 +103,13 @@ extension PipelineOrchestrator {
             )
             Self.appendToJobLog("✅ Transcript cleaned.\n", at: session.paths.jobLogURL)
         } catch {
+            if Task.isCancelled || error is CancellationError { throw CancellationError() }
             await loggingService.log(
                 "Transcript cleanup failed for job \(session.jobId): \(error.localizedDescription). Continuing with the original transcript.",
-                level: .warn,
+                level: .error,
                 component: "Pipeline"
             )
-            Self.appendToJobLog("WARN: Transcript cleanup failed: \(error.localizedDescription)\n", at: session.paths.jobLogURL)
+            Self.appendToJobLog("ERROR: Transcript cleanup failed: \(error.localizedDescription). Keeping original transcript.\n", at: session.paths.jobLogURL)
         }
     }
 }

@@ -1,6 +1,9 @@
 import Foundation
 
 struct LocalHTTPAPIModule: AutomationSourceModule {
+    var settingsPayloadCodec: ModuleSettingsPayloadCodec {
+        ModuleSettingsPayloadCodec(LocalHTTPAPISettings.self, includesEnabled: true, secrets: [ConfigurationSecretField(valuePath: ["apiKey"], referencePath: ["apiKeyKeychainRef"])])
+    }
     let id: AutomationSourceID = .localHTTPAPI
     let title = "Local HTTP API"
     let systemImage = "network"

@@ -13,7 +13,7 @@ final class BundlePackagingService {
         self.zipURLResolver = zipURLResolver
     }
 
-    func createBundleZip(in folderURL: URL, bundleURL: URL) throws {
+    func createBundleZip(in folderURL: URL, bundleURL: URL, includeMicrophone: Bool = true) throws {
         let tempBundleURL = folderURL.appendingPathComponent(
             bundleURL.lastPathComponent + ".tmp",
             isDirectory: false
@@ -32,7 +32,7 @@ final class BundlePackagingService {
         process.arguments = [
             "-q",
             tempBundleURL.lastPathComponent,
-        ] + bundleItems(in: folderURL)
+        ] + bundleItems(in: folderURL, includeMicrophone: includeMicrophone)
         try PipelineProcessRunner.run(
             process,
             errorContext: "zip failed creating \(bundleURL.lastPathComponent)"
@@ -41,17 +41,20 @@ final class BundlePackagingService {
         try fileManager.moveItem(at: tempBundleURL, to: bundleURL)
     }
 
-    private func bundleItems(in folderURL: URL) -> [String] {
+    private func bundleItems(in folderURL: URL, includeMicrophone: Bool) -> [String] {
         var items = [
             "system_audio.mp3",
             "microphone_audio.mp3",
             "transcript.txt",
             "transcript_merged.json",
         ]
+        if fileManager.fileExists(atPath: folderURL.appendingPathComponent("transcript_raw.txt").path) {
+            items.append("transcript_raw.txt")
+        }
         let summaryURL = folderURL.appendingPathComponent("summary.md", isDirectory: false)
         if fileManager.fileExists(atPath: summaryURL.path) {
             items.append("summary.md")
         }
-        return items
+        return includeMicrophone ? items : items.filter { $0 != "microphone_audio.mp3" }
     }
 }

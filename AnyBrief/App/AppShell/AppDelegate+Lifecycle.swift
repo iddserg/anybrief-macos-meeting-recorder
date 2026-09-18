@@ -1,11 +1,16 @@
 import AppKit
 import Foundation
+import UserNotifications
 
 extension AppDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard !Self.isRunningUnderXCTest else {
             return
         }
+
+        let notificationCenter = UNUserNotificationCenter.current()
+        notificationCenter.delegate = self
+        NotificationService.registerNotificationCategories()
 
         do {
             singleInstanceLock = try SingleInstanceLock.acquire()
@@ -35,6 +40,8 @@ extension AppDelegate {
                 try await environment.storageService.prepareStorage(using: environment.loggingService)
                 let jobs = await environment.jobRepository.load()
                 var settings = await environment.appSettingsStore.load(using: environment.loggingService)
+                let updateLanguage = settings.application.locale
+                Task { await checkForUpdatesAtStartup(languageSelection: updateLanguage) }
                 await ensureLocalAPIKey(in: &settings)
                 await environment.loggingService.log(
                     "Loaded settings from ~/anybrief/config/settings.json (locale=\(settings.application.locale), localHTTPAPIEnabled=\(settings.automation.localHTTPAPISettings.enabled), localHTTPAPIPort=\(settings.automation.localHTTPAPISettings.port))",
@@ -49,6 +56,7 @@ extension AppDelegate {
                 let hideDockIcon = settings.application.hideDockIcon
                 await MainActor.run {
                     DockIconController.apply(hideDockIcon: hideDockIcon)
+                    AppAppearanceController.apply(settings.application.appearance)
                 }
                 do {
                     try launchAtLoginController.setEnabled(settings.application.launchAtLogin)
@@ -91,6 +99,19 @@ extension AppDelegate {
                 level: .info,
                 component: "App"
             )
+        }
+    }
+
+    func checkForUpdatesAtStartup(languageSelection: String) async {
+        do {
+            let result = try await AppUpdateService().checkForUpdate(languageSelection: languageSelection)
+            await notificationService.notifyUpdateCheck(result, userInitiated: false)
+            await environment.loggingService.log(
+                "Startup update check completed. current=\(result.currentVersion), latest=\(result.manifest.version), updateAvailable=\(result.isNewer)",
+                level: .info, component: "Updates")
+        } catch {
+            await environment.loggingService.log("Startup update check failed: \(error.localizedDescription)",
+                level: .warn, component: "Updates")
         }
     }
 

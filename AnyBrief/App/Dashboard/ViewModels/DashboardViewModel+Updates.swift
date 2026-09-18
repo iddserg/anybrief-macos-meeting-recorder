@@ -2,18 +2,15 @@
 import Foundation
 
 extension DashboardViewModel {
-    func checkForUpdates(userInitiated: Bool = true) {
+    @discardableResult
+    func checkForUpdates(userInitiated: Bool = true) -> Task<Void, Never>? {
         guard !isCheckingForUpdates else {
-            return
+            return nil
         }
 
         isCheckingForUpdates = true
-        if userInitiated {
-            updateCheckMessage = String(localized: "Checking for updates...")
-            updateCheckMessageIsError = false
-        }
 
-        Task {
+        return Task {
             do {
                 let result = try await appUpdateService.checkForUpdate(languageSelection: languageSelection)
 
@@ -25,21 +22,10 @@ extension DashboardViewModel {
 
                 await MainActor.run {
                     isCheckingForUpdates = false
-                    if result.isNewer {
-                        availableUpdate = result.manifest
-                        updateCheckMessage = String(
-                            format: String(localized: "A new version is available: %@."),
-                            result.manifest.version
-                        )
-                        updateCheckMessageIsError = false
-                    } else {
-                        availableUpdate = nil
-                        if userInitiated {
-                            updateCheckMessage = String(localized: "You are using the latest version.")
-                            updateCheckMessageIsError = false
-                        }
-                    }
+                    availableUpdate = result.isNewer ? result.manifest : nil
                 }
+                await updateNotificationService?.notifyUpdateCheck(result, userInitiated: userInitiated)
+
             } catch {
                 await loggingService.log(
                     "Update check failed: \(error.localizedDescription)",
@@ -48,13 +34,11 @@ extension DashboardViewModel {
                 )
                 await MainActor.run {
                     isCheckingForUpdates = false
-                    if userInitiated {
-                        updateCheckMessage = String(
-                            format: String(localized: "Could not check for updates: %@"),
-                            error.localizedDescription
-                        )
-                        updateCheckMessageIsError = true
-                    }
+                }
+                if userInitiated {
+                    await updateNotificationService?.notify(
+                        category: .updateCheck, title: "AnyBrief",
+                        body: String(format: String(localized: "Could not check for updates: %@"), error.localizedDescription))
                 }
             }
         }

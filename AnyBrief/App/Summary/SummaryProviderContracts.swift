@@ -45,6 +45,7 @@ struct SummaryProviderSettingsViewContext {
 }
 
 protocol SummaryProviderModule {
+    var settingsPayloadCodec: ModuleSettingsPayloadCodec { get }
     var id: SummaryProvider { get }
     var title: String { get }
     var systemImage: String { get }
@@ -64,6 +65,8 @@ protocol SummaryProviderModule {
 }
 
 extension SummaryProviderModule {
+    var settingsPayloadCodec: ModuleSettingsPayloadCodec { ModuleSettingsPayloadCodec() }
+
     func normalize(_ configuration: SummaryProviderConfiguration) -> SummaryProviderConfiguration {
         configuration
     }

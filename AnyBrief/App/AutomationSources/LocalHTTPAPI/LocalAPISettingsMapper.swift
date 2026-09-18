@@ -95,29 +95,19 @@ extension LocalAPIHandlers {
         )
     }
 
-    func summaryProviderEntries(from payloads: [[String: Any]]) throws -> [SummaryProviderConfiguration] {
+    func summaryProviderEntries(from payloads: [[String: Any]], current: [SummaryProviderConfiguration] = []) throws -> [SummaryProviderConfiguration] {
         try payloads.compactMap { payload in
-            guard var configuration = try Self.summaryProviderConfigurationEnvelope(payload) else {
-                return nil
-            }
-            if configuration.provider == .openAICompatible {
-                var config = configuration.openAICompatibleConfig
-                try updateSecret(config.apiKey, currentRef: &config.apiKeyKeychainRef)
-                config.apiKey = ""
-                configuration.openAICompatibleConfig = config
-            }
+            guard var configuration = try Self.summaryProviderConfigurationEnvelope(payload) else { return nil }
+            let module = try SummaryProviderRegistry.default.module(for: configuration.provider)
+            let previous = current.first { $0.id == configuration.id && $0.provider == configuration.provider }
+            configuration.payload = try importModulePayload(module.settingsPayloadCodec, input: configuration.payload, previous: previous?.payload)
             return configuration
         }
     }
 
     func summaryProviderConfigurationPayload(_ configuration: SummaryProviderConfiguration) -> [String: Any] {
-        var providerPayload = configuration.payload
-        if configuration.provider == .openAICompatible {
-            var config = configuration.openAICompatibleConfig
-            config.apiKey = secretMask(for: config.apiKeyKeychainRef) ?? ""
-            config.apiKeyKeychainRef = nil
-            providerPayload = ConfigurationPayloadCodec.encode(config)
-        }
+        let codec = (try? SummaryProviderRegistry.default.module(for: configuration.provider).settingsPayloadCodec) ?? ModuleSettingsPayloadCodec()
+        let providerPayload = codec.exporting(configuration.payload, secrets: keychainStore)
         return [
             "id": configuration.id,
             "provider": configuration.provider.rawValue,
@@ -167,27 +157,14 @@ extension LocalAPIHandlers {
             }
             let id = payload["id"] as? String ?? UUID().uuidString.lowercased()
             let enabled = payload["enabled"] as? Bool ?? true
-            let configuration: AutomationSourceConfiguration
-            switch source {
-            case .localHTTPAPI:
-                var settings = try decodePayload(payload["payload"], as: LocalHTTPAPISettings.self)
-                settings.enabled = enabled
-                settings.apiKeyKeychainRef = currentSettings.automation.localHTTPAPISettings.apiKeyKeychainRef
-                try updateSecret(settings.apiKey, currentRef: &settings.apiKeyKeychainRef)
-                settings.apiKey = ""
-                configuration = AutomationSourceConfiguration.localHTTPAPI(settings).withID(id)
-            case .calDAV:
-                var settings = try decodePayload(payload["payload"], as: CalDAVAutomationSettings.self)
-                settings.enabled = enabled
-                settings.passwordKeychainRef = currentSettings.automation.calDAVSettings.passwordKeychainRef
-                try updateSecret(settings.config.password, currentRef: &settings.passwordKeychainRef)
-                settings.config.password = ""
-                configuration = AutomationSourceConfiguration.calDAV(settings).withID(id)
-            case .windowObserver:
-                var settings = try decodePayload(payload["payload"], as: WindowObserverConfig.self).normalized()
-                settings.enabled = enabled
-                configuration = AutomationSourceConfiguration.windowObserver(settings).withID(id)
+            let module = try AutomationSourceRegistry.default.module(for: source)
+            guard payload["payload"] is [String: Any] else {
+                throw APIError(status: 400, code: "invalid_request", message: "Missing settings payload.")
             }
+            let previous = currentSettings.automation.sources.first { $0.source == source }
+            let imported = try importModulePayload(module.settingsPayloadCodec,
+                input: configurationPayload(from: payload["payload"]), previous: previous?.payload, enabled: enabled)
+            let configuration = AutomationSourceConfiguration(id: id, source: source, enabled: enabled, payload: imported)
             if let index = result.firstIndex(where: { $0.source == source }) {
                 result[index] = configuration
             } else {
@@ -211,12 +188,15 @@ extension LocalAPIHandlers {
             }
             let id = payload["id"] as? String ?? UUID().uuidString.lowercased()
             let enabled = payload["enabled"] as? Bool ?? false
+            let module = try AutomationSourceRegistry.default.module(for: source)
             let configuration: AutomationRuleConfiguration
-            switch kind {
-            case .calendarAutopilot:
-                var settings = try decodePayload(payload["payload"], as: AutopilotSettings.self)
-                settings.enabled = enabled
-                configuration = AutomationRuleConfiguration.calendarAutopilot(settings).withID(id)
+            do {
+                configuration = try module.importRuleConfiguration(AutomationRuleConfiguration(
+                    id: id, kind: kind, source: source, enabled: enabled,
+                    payload: configurationPayload(from: payload["payload"])
+                ))
+            } catch let error as ModuleSettingsPayloadError {
+                throw APIError(status: 400, code: "invalid_request", message: error.localizedDescription)
             }
             if let index = result.firstIndex(where: { $0.kind == kind && $0.source == source }) {
                 result[index] = configuration
@@ -228,21 +208,8 @@ extension LocalAPIHandlers {
     }
 
     func automationSourceConfigurationPayload(_ configuration: AutomationSourceConfiguration) -> [String: Any] {
-        var sourcePayload = configuration.payload
-        switch configuration.source {
-        case .localHTTPAPI:
-            var settings = configuration.localHTTPAPISettings
-            settings.apiKey = secretMask(for: settings.apiKeyKeychainRef) ?? ""
-            settings.apiKeyKeychainRef = nil
-            sourcePayload = ConfigurationPayloadCodec.encode(settings)
-        case .calDAV:
-            var settings = configuration.calDAVSettings
-            settings.config.password = secretMask(for: settings.passwordKeychainRef) ?? ""
-            settings.passwordKeychainRef = nil
-            sourcePayload = ConfigurationPayloadCodec.encode(settings)
-        case .windowObserver:
-            sourcePayload = ConfigurationPayloadCodec.encode(configuration.windowObserverSettings.normalized())
-        }
+        let codec = (try? AutomationSourceRegistry.default.module(for: configuration.source).settingsPayloadCodec) ?? ModuleSettingsPayloadCodec()
+        let sourcePayload = codec.exporting(configuration.payload, secrets: keychainStore)
         return [
             "id": configuration.id,
             "source": configuration.source.rawValue,
@@ -290,6 +257,12 @@ extension LocalAPIHandlers {
             if let presenceCheckEnabled = application["presenceCheckEnabled"] as? Bool {
                 settings.application.presenceCheckEnabled = presenceCheckEnabled
             }
+            if let value = application["appearance"] {
+                guard let raw = value as? String, let appearance = AppAppearance(rawValue: raw) else {
+                    throw APIError(status: 400, code: "invalid_request", message: "application.appearance must be light, dark or system.")
+                }
+                settings.application.appearance = appearance
+            }
             if let locale = application["locale"] as? String {
                 settings.application.locale = locale
             }
@@ -308,6 +281,14 @@ extension LocalAPIHandlers {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             settings.recording.microphoneDeviceUID = uid?.isEmpty == false ? uid : nil
         }
+        if let recording = body["recording"] as? [String: Any],
+           recording.keys.contains("systemAudioApplicationBundleIdentifier") {
+            let bundleIdentifier = (recording["systemAudioApplicationBundleIdentifier"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            settings.recording.systemAudioApplicationBundleIdentifier = bundleIdentifier?.isEmpty == false
+                ? bundleIdentifier
+                : nil
+        }
 
         if let summary = body["summary"] as? [String: Any] {
             if let enabled = summary["enabled"] as? Bool {
@@ -317,7 +298,7 @@ extension LocalAPIHandlers {
 
         if let llm = body["llm"] as? [String: Any] {
             if let connectionConfigs = llm["connections"] as? [[String: Any]] {
-                settings.llm.connections = try summaryProviderEntries(from: connectionConfigs)
+                settings.llm.connections = try summaryProviderEntries(from: connectionConfigs, current: settings.llm.connections)
             }
         }
 
@@ -416,11 +397,13 @@ extension LocalAPIHandlers {
                 "notificationCategories": settings.application.notificationCategories,
                 "presenceCheckEnabled": settings.application.presenceCheckEnabled,
                 "locale": settings.application.locale,
+                "appearance": settings.application.appearance.rawValue,
                 "jobsHistoryLimit": settings.application.jobsHistoryLimit,
             ],
             "recording": [
                 "microphoneVoiceProcessingEnabled": settings.recording.microphoneVoiceProcessingEnabled,
                 "microphoneDeviceUID": settings.recording.microphoneDeviceUID ?? "",
+                "systemAudioApplicationBundleIdentifier": settings.recording.systemAudioApplicationBundleIdentifier ?? "",
             ],
             "summary": [
                 "enabled": settings.summary.enabled,
@@ -484,55 +467,11 @@ extension LocalAPIHandlers {
         return try JSONDecoder().decode(T.self, from: data)
     }
 
-    func secretMask(for ref: String?) -> String? {
-        guard let ref, !ref.isEmpty, keychainStore.load(key: ref) != nil else {
-            return nil
+    private func importModulePayload(_ codec: ModuleSettingsPayloadCodec, input: ConfigurationPayload,
+                                     previous: ConfigurationPayload?, enabled: Bool? = nil) throws -> ConfigurationPayload {
+        do { return try codec.importing(input, previous: previous, enabled: enabled, secrets: keychainStore) }
+        catch let error as ModuleSettingsPayloadError {
+            throw APIError(status: 400, code: "invalid_request", message: error.localizedDescription)
         }
-        return "***"
-    }
-
-    func updateSecret(_ rawValue: Any?, currentRef: inout String?) throws {
-        guard let rawValue else {
-            return
-        }
-        if rawValue is NSNull {
-            if let currentRef {
-                keychainStore.delete(key: currentRef)
-            }
-            currentRef = nil
-            return
-        }
-        guard let stringValue = rawValue as? String else {
-            throw APIError(status: 400, code: "invalid_request", message: "Secret fields must be strings or null.")
-        }
-        if stringValue == "***" || stringValue.hasPrefix("••") {
-            return
-        }
-        if stringValue.isEmpty {
-            if let currentRef {
-                keychainStore.delete(key: currentRef)
-            }
-            currentRef = nil
-            return
-        }
-        let reference = currentRef?.isEmpty == false ? currentRef! : UUID().uuidString.lowercased()
-        try keychainStore.save(key: reference, value: stringValue)
-        currentRef = reference
-    }
-}
-
-private extension AutomationSourceConfiguration {
-    func withID(_ id: String) -> AutomationSourceConfiguration {
-        var copy = self
-        copy.id = id
-        return copy
-    }
-}
-
-private extension AutomationRuleConfiguration {
-    func withID(_ id: String) -> AutomationRuleConfiguration {
-        var copy = self
-        copy.id = id
-        return copy
     }
 }

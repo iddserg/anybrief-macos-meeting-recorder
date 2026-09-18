@@ -15,10 +15,18 @@ struct AppUpdateCheckResult: Sendable {
 }
 
 struct AppUpdateService: Sendable {
+    private let session: URLSession
+    private let installedVersion: String
+
+    init(session: URLSession = .shared, currentVersion: String? = nil) {
+        self.session = session
+        self.installedVersion = currentVersion ?? Self.currentAppVersion
+    }
+
     func checkForUpdate(languageSelection: String) async throws -> AppUpdateCheckResult {
-        let currentVersion = Self.currentAppVersion
+        let currentVersion = installedVersion
         let manifestURL = Self.updateManifestURL(languageSelection: languageSelection)
-        let (data, response) = try await URLSession.shared.data(from: manifestURL)
+        let (data, response) = try await session.data(from: manifestURL)
         if let httpResponse = response as? HTTPURLResponse,
            !(200..<300).contains(httpResponse.statusCode) {
             throw URLError(.badServerResponse)

@@ -58,9 +58,9 @@ struct WhisperCppDiagnostics: TranscriptionDiagnostics {
     }
 
     private func diarizationModelsCheck() -> TranscriptionTechnologyCheck {
-        let missing = FluidAudioSTTModelService.diarizationRelativePaths.filter { relativePath in
+        let missing = DiarizationModelService.relativePaths.filter { relativePath in
             !fileManager.fileExists(
-                atPath: FluidAudioSTTModelService.modelsDirectoryURL
+                atPath: DiarizationModelService.modelsDirectoryURL
                     .appendingPathComponent(relativePath)
                     .path
             )

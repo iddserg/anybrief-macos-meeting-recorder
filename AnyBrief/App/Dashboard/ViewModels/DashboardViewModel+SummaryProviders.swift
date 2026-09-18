@@ -207,6 +207,7 @@ extension DashboardViewModel {
     }
 
     func repeatSummary(_ meeting: RecentMeeting) {
+        summaryActionMeetingID = meeting.id
         if let reason = repeatSummaryUnavailableReason(meeting) {
             summaryActionMessage = reason
             summaryActionMessageIsError = true
@@ -226,7 +227,7 @@ extension DashboardViewModel {
 
         Task {
             do {
-                let settings = await currentSummarySettings()
+                let settings = await appSettingsStore.load(using: loggingService)
                 let transcriptURL = meeting.folderURL.appendingPathComponent("transcript.txt", isDirectory: false)
                 let transcript = try String(contentsOf: transcriptURL, encoding: .utf8)
                 let existingFrontmatter = frontmatterFromSummary(in: meeting.folderURL)
@@ -275,6 +276,7 @@ extension DashboardViewModel {
                 )
                 await markJobCompletedAfterRepeatSummary(meeting)
                 resummarizingMeetingIds.remove(meeting.id)
+                summaryActionMeetingID = meeting.id
                 summaryActionMessage = String(format: String(localized: "Summary regenerated for %@."), meeting.title)
                 summaryActionMessageIsError = false
                 await refresh()
@@ -285,6 +287,7 @@ extension DashboardViewModel {
                     component: "Dashboard"
                 )
                 resummarizingMeetingIds.remove(meeting.id)
+                summaryActionMeetingID = meeting.id
                 summaryActionMessage = error.localizedDescription
                 summaryActionMessageIsError = true
             }

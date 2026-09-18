@@ -62,6 +62,7 @@ actor LLMService {
         transcriptURL: URL? = nil,
         progress: (@Sendable (LLMProgressEvent) async -> Void)? = nil
     ) async throws -> Output {
+        try Task.checkCancellation()
         let systemPrompt = SummaryPromptBuilder.systemPrompt(
             prompt: prompt,
             speakerContext: speakerContext,
@@ -102,6 +103,7 @@ actor LLMService {
         var fallbackFrom: String?
         let enabledConnections = connections.filter(\.enabled)
         for (offset, configuration) in enabledConnections.enumerated() {
+            try Task.checkCancellation()
             var connectionName = configuration.name?
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             do {
@@ -140,6 +142,7 @@ actor LLMService {
                     workingDirectory: effectiveWorkingDirectory,
                     transcriptURL: effectiveTranscriptURL
                 ))
+                try Task.checkCancellation()
                 await log(
                     "LLM request completed: provider=\(configuration.provider.rawValue), model=\(providerMetadata.model), output_chars=\(output.count)",
                     level: .info
@@ -153,6 +156,7 @@ actor LLMService {
                 ))
                 return Output(text: output, provider: providerMetadata)
             } catch {
+                if Task.isCancelled || error is CancellationError { throw CancellationError() }
                 let effectiveConnectionName = connectionName ?? configuration.provider.rawValue
                 await log(
                     "LLM request failed: provider=\(configuration.provider.rawValue), error=\(error.localizedDescription)",

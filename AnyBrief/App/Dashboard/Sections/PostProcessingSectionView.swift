@@ -12,7 +12,7 @@ extension DashboardView {
                 case .transcript:
                     transcriptCleanupGroup
                 case .export:
-                    summaryExportGroup
+                    exportGroup
                 }
             }
             .frame(
@@ -62,104 +62,64 @@ extension DashboardView {
         .clipShape(RoundedRectangle(cornerRadius: 9))
         .overlay(
             RoundedRectangle(cornerRadius: 9)
-                .stroke(Color.black.opacity(0.14), lineWidth: 1)
+                .stroke(ABDesign.border, lineWidth: 1)
         )
     }
 
     var automaticSummaryGroup: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Toggle("", isOn: $viewModel.summaryEnabled)
-                    .toggleStyle(.switch)
-                    .labelsHidden()
-                Text(String(localized: "Automatic summary"))
-                    .font(ABTypography.bodySemibold)
-                    .foregroundStyle(ABDesign.primaryText)
-            }
-
-            labeledField(
-                String(localized: "Summary prompt"),
-                help: String(localized: "Used when no meeting title pattern matches. Patterns are configured per prompt in the Prompts tab.")
-            ) {
-                promptPicker(selection: $viewModel.summaryPromptID, allowsNone: false)
-            }
-
-            labeledField(
-                String(localized: "Summary connections"),
-                help: String(localized: "Auto tries enabled connections top to bottom in their LLM tab order. Pick a specific connection to always use only that one.")
-            ) {
-                connectionPicker(selection: singleConnectionSelection($viewModel.summaryConnectionIDs))
-            }
-
-            labeledField(
-                String(localized: "Speaker context"),
-                help: String(localized: "Optional hints for the summary model about who is speaking. Shared with transcript cleanup. Manage the text in the Prompts tab.")
-            ) {
-                VStack(alignment: .leading, spacing: 6) {
-                    promptPicker(selection: $viewModel.speakerContextPromptID, allowsNone: true)
-                    Text(String(localized: "Picks a prompt from the Prompts tab and passes its text to the model as extra context — e.g. who's on the mic, or names to use for generic speaker labels. Shared with transcript cleanup below, so it only needs to be set once."))
-                        .font(ABTypography.caption)
-                        .foregroundStyle(ABDesign.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-        .frame(maxHeight: .infinity, alignment: .topLeading)
-        .padding(10)
-        .background(Color.black.opacity(0.025))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        VStack(alignment: .leading, spacing: 16) {
+            WorkspaceSettingsSectionHeader(title: String(localized: "Automatic summary"),
+                isOn: $viewModel.summaryEnabled, showsStatus: false)
+            processingAssignmentFields(promptTitle: String(localized: "Summary prompt"),
+                promptHelp: String(localized: "Used when no meeting title pattern matches. Patterns are configured per prompt in the Prompts tab."),
+                prompt: $viewModel.summaryPromptID, connections: $viewModel.summaryConnectionIDs)
+            processingSpeakerContext
+        }.controlSize(.regular)
     }
 
     var transcriptCleanupGroup: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Toggle("", isOn: $viewModel.transcriptCleanupEnabled)
-                    .toggleStyle(.switch)
-                    .labelsHidden()
-                Text(String(localized: "Transcript cleanup"))
-                    .font(ABTypography.bodySemibold)
-                    .foregroundStyle(ABDesign.primaryText)
-            }
-
-            Text(String(localized: "Runs after transcription and before summarization: fixes recognition errors and fills in speaker names using calendar context. Overwrites the transcript with the cleaned version, so the summary and any exports use it too."))
-                .font(ABTypography.caption)
-                .foregroundStyle(ABDesign.secondaryText)
-                .fixedSize(horizontal: false, vertical: true)
-
-            labeledField(
-                String(localized: "Cleanup prompt"),
-                help: String(localized: "Speaker names come from the Speaker context field on the Summary tab, which is shared with this step.")
-            ) {
-                promptPicker(selection: $viewModel.transcriptCleanupPromptID, allowsNone: false)
-            }
-
-            labeledField(
-                String(localized: "Cleanup connections"),
-                help: String(localized: "Auto tries enabled connections top to bottom in their LLM tab order. Pick a specific connection to always use only that one.")
-            ) {
-                connectionPicker(selection: singleConnectionSelection($viewModel.transcriptCleanupConnectionIDs))
-            }
-
-            labeledField(
-                String(localized: "Speaker context"),
-                help: String(localized: "Optional hints for the model about who is speaking. Shared with the Summary tab. Manage the text in the Prompts tab.")
-            ) {
-                VStack(alignment: .leading, spacing: 6) {
-                    promptPicker(selection: $viewModel.speakerContextPromptID, allowsNone: true)
-                    Text(String(localized: "Picks a prompt from the Prompts tab and passes its text to the model as extra context — e.g. who's on the mic, or names to use for generic speaker labels. Shared with the Summary tab, so it only needs to be set once."))
-                        .font(ABTypography.caption)
-                        .foregroundStyle(ABDesign.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-        .frame(maxHeight: .infinity, alignment: .topLeading)
-        .padding(10)
-        .background(Color.black.opacity(0.025))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        VStack(alignment: .leading, spacing: 16) {
+            WorkspaceSettingsSectionHeader(title: String(localized: "Transcript cleanup"),
+                isOn: $viewModel.transcriptCleanupEnabled, showsStatus: false)
+            processingAssignmentFields(promptTitle: String(localized: "Cleanup prompt"),
+                promptHelp: String(localized: "Runs after transcription and before summarization: fixes recognition errors and fills in speaker names using calendar context. Overwrites the transcript with the cleaned version, so the summary and any exports use it too."),
+                prompt: $viewModel.transcriptCleanupPromptID, connections: $viewModel.transcriptCleanupConnectionIDs)
+            processingSpeakerContext
+        }.controlSize(.regular)
     }
 
-    var summaryExportGroup: some View {
+    private func processingAssignmentFields(promptTitle: String, promptHelp: String,
+        prompt: Binding<String?>, connections: Binding<[String]>) -> some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 20) {
+                processingPromptField(title: promptTitle, help: promptHelp, selection: prompt).frame(width: 300)
+                processingConnectionField(connections).frame(width: 260)
+            }
+            VStack(alignment: .leading, spacing: 16) {
+                processingPromptField(title: promptTitle, help: promptHelp, selection: prompt)
+                processingConnectionField(connections)
+            }
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func processingPromptField(title: String, help: String, selection: Binding<String?>) -> some View {
+        labeledField(title, help: help) { promptPicker(selection: selection, allowsNone: false) }
+    }
+
+    private func processingConnectionField(_ connections: Binding<[String]>) -> some View {
+        labeledField("LLM", help: String(localized: "Auto tries enabled connections top to bottom in their LLM tab order. Pick a specific connection to always use only that one.")) {
+            connectionPicker(selection: singleConnectionSelection(connections))
+        }
+    }
+
+    private var processingSpeakerContext: some View {
+        labeledField(String(localized: "Speaker context"),
+            help: String(localized: "Optional hints for the summary model about who is speaking. Shared with transcript cleanup. Manage the text in the Prompts tab.")) {
+            promptPicker(selection: $viewModel.speakerContextPromptID, allowsNone: true)
+        }
+    }
+
+    var exportGroup: some View {
         VStack(alignment: .leading, spacing: 14) {
             postProcessingHeader
 
@@ -184,26 +144,10 @@ extension DashboardView {
     }
 
     var postProcessingHeader: some View {
-        HStack(spacing: 12) {
-            Toggle("", isOn: $viewModel.postProcessingEnabled)
-                .toggleStyle(.switch)
-                .labelsHidden()
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(String(localized: "Summary export"))
-                    .font(ABTypography.sectionTitle)
-                    .foregroundStyle(ABDesign.primaryText)
-                Text(viewModel.postProcessingEnabled ? String(localized: "Enabled") : String(localized: "Disabled"))
-                    .font(ABTypography.bodyMedium)
-                    .foregroundStyle(viewModel.postProcessingEnabled ? ABDesign.green : ABDesign.secondaryText)
-            }
-
-            Spacer()
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(Color.black.opacity(0.025))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        WorkspaceSettingsSectionHeader(
+            title: String(localized: "Export"),
+            isOn: $viewModel.postProcessingEnabled
+        )
     }
 
     var postProcessingRuleList: some View {
@@ -212,39 +156,39 @@ extension DashboardView {
                 .font(ABTypography.bodySemibold)
                 .foregroundStyle(ABDesign.primaryText)
 
-            VStack(spacing: 4) {
-                ForEach($viewModel.postProcessingRules) { $rule in
-                    postProcessingRuleRow($rule)
+            ScrollView(.vertical) {
+                LazyVStack(spacing: 4) {
+                    ForEach($viewModel.postProcessingRules) { $rule in
+                        postProcessingRuleRow($rule)
+                    }
                 }
             }
+            .scrollIndicators(.automatic)
+            .frame(height: 300)
 
             HStack(spacing: 8) {
                 Button {
                     viewModel.addPostProcessingRule()
                 } label: {
-                    Image(systemName: "plus")
-                        .font(ABTypography.bodySemibold)
-                        .frame(width: 42, height: 24)
+                    WorkspaceCollectionActionIcon(systemImage: "plus")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.plain)
 
                 Button {
                     viewModel.removeSelectedPostProcessingRule()
                 } label: {
-                    Image(systemName: "minus")
-                        .font(ABTypography.bodySemibold)
-                        .frame(width: 42, height: 24)
+                    WorkspaceCollectionActionIcon(systemImage: "minus")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.plain)
                 .disabled(!viewModel.canRemoveSelectedPostProcessingRule)
             }
         }
         .padding(10)
-        .background(Color.white.opacity(0.62))
+        .background(ABDesign.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.black.opacity(0.12), lineWidth: 1)
+                .stroke(ABDesign.badgeBackground, lineWidth: 1)
         )
     }
 
@@ -289,7 +233,7 @@ extension DashboardView {
         guard let index = selectedIndex ?? viewModel.postProcessingRules.indices.first else {
             return nil
         }
-        return $viewModel.postProcessingRules[index]
+        return WorkspaceCollectionBinding.item(viewModel.postProcessingRules[index], in: $viewModel.postProcessingRules)
     }
 
     func postProcessingRuleDetails(_ rule: Binding<PostProcessingRuleConfiguration>) -> some View {
@@ -319,9 +263,19 @@ extension DashboardView {
                 .frame(width: 260)
             }
 
+            labeledField(String(localized: "Export content")) {
+                Picker("", selection: rule.exportContent) {
+                    Text(String(localized: "Summary")).tag(PostProcessingRuleConfiguration.ExportContent.summary)
+                    Text(String(localized: "Transcript")).tag(PostProcessingRuleConfiguration.ExportContent.transcript)
+                    Text(String(localized: "Both")).tag(PostProcessingRuleConfiguration.ExportContent.both)
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 330)
+            }
+
             labeledField(
                 String(localized: "Folder"),
-                help: String(localized: "Only existing folders are used. AnyBrief copies summary.md and never moves the local meeting.")
+                help: String(localized: "Only existing folders are used. AnyBrief copies selected files and never moves the local meeting.")
             ) {
                 HStack(spacing: 8) {
                     settingsReadOnlyField(rule.wrappedValue.destinationFolderPath.isEmpty ? "—" : rule.wrappedValue.destinationFolderPath) {
@@ -339,7 +293,7 @@ extension DashboardView {
 
             labeledField(
                 String(localized: "Filename"),
-                help: String(localized: "Available tokens: {date}, {calendarTitle}, {topic}.")
+                help: String(localized: "Available tokens: {date}, {calendarTitle}, {topic}, {type}.")
             ) {
                 TextField("", text: rule.filenameTemplate)
                     .textFieldStyle(.roundedBorder)
@@ -361,12 +315,12 @@ extension DashboardView {
     }
 
     var postProcessingManualExport: some View {
-        DisclosureGroup(isExpanded: $recentSummariesExpanded) {
+        DisclosureGroup(isExpanded: $recentExportsExpanded) {
             postProcessingManualExportList
                 .padding(.top, 10)
         } label: {
             HStack {
-                Text(String(localized: "Recent summaries"))
+                Text(String(localized: "Recent meetings"))
                     .font(ABTypography.bodySemibold)
                     .foregroundStyle(ABDesign.primaryText)
                 Spacer()
@@ -397,15 +351,15 @@ extension DashboardView {
                     }
                     Spacer()
                     Button {
-                        viewModel.exportMeetingSummary(meeting)
+                        viewModel.exportMeeting(meeting)
                     } label: {
                         Label(String(localized: "Export"), systemImage: "tray.and.arrow.up")
                             .labelStyle(.iconOnly)
                             .frame(width: 28, height: 24)
                     }
                     .buttonStyle(.bordered)
-                    .help(Text(String(localized: "Export summary using matching rule")))
-                    .disabled(meeting.summaryURL == nil || viewModel.exportingMeetingIds.contains(meeting.id))
+                    .help(Text(String(localized: "Export using matching rule")))
+                    .disabled(!viewModel.hasExportableArtifacts(meeting) || viewModel.exportingMeetingIds.contains(meeting.id))
                 }
                 .padding(.vertical, 7)
 
@@ -415,11 +369,11 @@ extension DashboardView {
             }
         }
         .padding(.horizontal, 10)
-        .background(Color.white.opacity(0.62))
+        .background(ABDesign.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .stroke(Color.black.opacity(0.12), lineWidth: 1)
+                .stroke(ABDesign.badgeBackground, lineWidth: 1)
         )
     }
 }

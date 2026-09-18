@@ -28,30 +28,19 @@ enum SummaryProviderSettingsControls {
         fillWidth: Bool = false,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 5) {
-                Text(label)
-                    .font(ABTypography.bodySemibold)
-                    .foregroundStyle(ABDesign.primaryText)
-                if let help {
-                    HelpTooltipIcon(text: help)
-                }
-            }
-            content()
-        }
-        .frame(maxWidth: fillWidth ? .infinity : nil, alignment: .leading)
+        WorkspaceFormField(title: label, help: help, fillWidth: fillWidth, content: content)
     }
 
-    /// Lays fields out in a row without letting them stretch to fill
-    /// leftover space unevenly (each field sizes to its own content).
+    /// Keep fields together when space allows; stack them in narrow editors.
     static func wrappingFieldRow<Content: View>(
         spacing: CGFloat = 20,
         @ViewBuilder content: () -> Content
     ) -> some View {
-        HStack(alignment: .top, spacing: spacing) {
-            content()
-            Spacer(minLength: 0)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: spacing) { content() }
+            VStack(alignment: .leading, spacing: spacing) { content() }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     static func promptEditor(text: Binding<String>, height: CGFloat) -> some View {
@@ -64,11 +53,11 @@ enum SummaryProviderSettingsControls {
                 .scrollContentBackground(.hidden)
                 .padding(12)
                 .frame(height: height)
-                .background(Color.white.opacity(0.86))
+                .background(ABDesign.controlBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.black.opacity(0.16), lineWidth: 1)
+                        .stroke(ABDesign.border, lineWidth: 1)
                 )
         }
     }
@@ -77,7 +66,6 @@ enum SummaryProviderSettingsControls {
         Text(text)
             .font(ABTypography.caption)
             .foregroundStyle(.secondary)
-            .lineLimit(1)
-            .truncationMode(.tail)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }

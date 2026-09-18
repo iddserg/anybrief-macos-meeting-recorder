@@ -21,6 +21,7 @@ final class AppEnvironment {
     let llmService: LLMService
     let summarizationService: SummarizationService
     let jobRepository: JobRepositoryProtocol
+    let callStatisticsService = CallStatisticsService()
     var appState: AppState
 
     private init() {

@@ -39,7 +39,8 @@ extension DashboardViewModel.CurrentActivity {
         guard let detail,
               let connectionName = detail.connectionName,
               let connectionIndex = detail.connectionIndex,
-              let connectionCount = detail.connectionCount else {
+              let connectionCount = detail.connectionCount,
+              connectionIndex > 1 else {
             return nil
         }
         let position = String(
