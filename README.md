@@ -4,6 +4,24 @@ AnyBrief is a macOS menu bar app for recording calls, transcribing audio, and pr
 
 The app is designed as a small call autopilot: it can record manually, start and stop recording from a CalDAV calendar schedule, keep meeting files organized, and expose a localhost API for local automations.
 
+## Screenshots
+
+### Meetings and summaries
+
+![AnyBrief meetings workspace with a generated summary](docs/screenshots/v2-meetings.webp)
+
+| Active recording | Processing pipeline |
+| --- | --- |
+| ![Active recording with microphone and system-audio levels](docs/screenshots/v2-hero-recording.webp) | ![Meeting processing progress](docs/screenshots/v2-hero-processing.webp) |
+
+| Speech recognition | LLM connections |
+| --- | --- |
+| ![FluidAudio and whisper.cpp recognition settings](docs/screenshots/v2-recognition.webp) | ![LLM connection settings](docs/screenshots/v2-llm.webp) |
+
+| Dark mode | File import |
+| --- | --- |
+| ![AnyBrief meetings workspace in dark mode](docs/screenshots/v2-dark.webp) | ![Audio and video meeting import](docs/screenshots/v2-import.webp) |
+
 ## AnyBrief 2.0 workspace
 
 The 2.0 development branch keeps the native SwiftUI app and existing recording,
